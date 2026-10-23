@@ -1,0 +1,16 @@
+node_modules/
+.next/
+*.tsbuildinfo
+out/
+dist/
+release/
+.env
+.env.*
+!.env.example
+client_secret_*.json
+all api keys.md
+*.db
+*.db-shm
+*.db-wal
+workspaces/
+data/

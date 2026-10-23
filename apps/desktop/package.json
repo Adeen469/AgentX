@@ -1,0 +1,45 @@
+{
+  "name": "@agentx/desktop",
+  "private": true,
+  "version": "0.1.0",
+  "main": "main.js",
+  "build": {
+    "appId": "com.agentx.desktop",
+    "productName": "AgentX",
+    "copyright": "Copyright © 2026 AgentX contributors",
+    "directories": { "output": "release" },
+    "files": ["main.js", "resources/**", "!node_modules/**"],
+    "extraResources": [
+      { "from": "../../apps/web/.next/standalone", "to": "web" },
+      { "from": "../../apps/web/.next/static", "to": "web/.next/static" }
+    ],
+    "win": {
+      "target": ["nsis", "portable"],
+      "artifactName": "AgentX-${version}-${arch}.${ext}",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "AgentX",
+      "runAfterFinish": true,
+      "license": "../../LICENSE.txt",
+      "include": "installer.nsh",
+      "installerLanguages": ["en_US"],
+      "deleteAppDataOnUninstall": false
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit",
+    "package": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^32.2.7",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.6.2"
+  }
+}

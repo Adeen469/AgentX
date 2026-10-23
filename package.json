@@ -1,0 +1,28 @@
+{
+  "name": "agentx",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Free and self-hostable agent workspace for collaborative repository bug fixing.",
+  "workspaces": [
+    "apps/web",
+    "apps/desktop",
+    "packages/collaboration",
+    "apps/server"
+  ],
+  "scripts": {
+    "dev": "node scripts/dev.js",
+    "dev:web": "npm run dev --workspace apps/web",
+    "dev:collaboration": "npm run dev --workspace apps/server",
+    "server": "npm run dev --workspace apps/server",
+    "db:setup": "node scripts/setup-database.js",
+    "validate:env": "node scripts/validate-environment.js",
+    "build:web": "npm run build --workspace @agentx/web",
+    "release:windows": "npm run build:web && npm run package --workspace @agentx/desktop",
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspaces",
+    "desktop:build": "npm run build --workspace apps/desktop"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

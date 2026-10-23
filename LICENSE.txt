@@ -1,0 +1,18 @@
+AgentX License Agreement
+
+Copyright (c) 2026 AgentX contributors.
+
+AgentX is provided as free and self-hostable software. You may use, study,
+modify, and redistribute it under the terms of the MIT License.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+By installing AgentX, you acknowledge that repository operations, code
+execution, and pull-request actions can modify local files or remote GitHub
+repositories. Irreversible actions require explicit confirmation in the app.

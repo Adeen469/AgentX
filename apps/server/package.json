@@ -1,0 +1,14 @@
+{
+  "name": "@agentx/server",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "node src/server.js",
+    "start": "node src/server.js",
+    "typecheck": "node --check src/server.js"
+  },
+  "dependencies": {
+    "pg": "^8.13.1",
+    "ws": "^8.18.0"
+  }
+}

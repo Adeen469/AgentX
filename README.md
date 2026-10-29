@@ -77,6 +77,20 @@ The agent workspace APIs clone repositories into `WORKSPACE_ROOT`, prevent path
 traversal, allow only an explicit test-command allowlist, and require a signed
 human approval token before pushing a branch or opening a pull request.
 
+## Vercel multi-service deployment
+
+Deploy `web` (Next.js, public at `/` including `/api/*`) and
+`collaboration` (containerized WebSocket server, public only at
+`/collab`) together from the repo-root `vercel.json`. Do not use
+Vercel's auto-suggested `/api/(.*)` → server mapping: it would send
+every Next.js API route to a server that only speaks WebSocket.
+There are no service bindings, because no service calls another
+service — the browser connects to `/collab` directly. See
+[docs/VERCEL.md](./docs/VERCEL.md) for the service table, import
+steps, environment variables, and the platform limits that remain
+(300-second Hobby connection cap, no cross-instance broadcast
+without Redis, no Docker sandbox on Vercel).
+
 ## Docker sandbox (Phase 2)
 
 Tests never run on the host. `POST /api/workspace/test` runs the

@@ -13,7 +13,11 @@ if (fs.existsSync(rootEnvPath)) {
   }
 }
 
-const port = Number(process.env.COLLABORATION_PORT || 8787);
+// Vercel's container runtime routes traffic to $PORT (default 80).
+// Locally, COLLABORATION_PORT (default 8787) still wins when PORT is unset.
+// PORT must win on Vercel, otherwise the container listens on a port Vercel
+// never routes to and the service looks dead.
+const port = Number(process.env.PORT || process.env.COLLABORATION_PORT || 8787);
 const statePath = path.resolve(process.env.COLLABORATION_STATE_FILE || "data/collaboration-rooms.json");
 const developmentMode = process.env.COLLABORATION_DEV_MODE === "true";
 const authSecret = process.env.AUTH_SECRET;
@@ -186,7 +190,18 @@ async function handle(socket, message) {
     message.displayName = socket.displayName;
     if (!message.userId || !message.displayName) throw new Error("A signed-in user is required.");
     const existing = memberFor(room, message.userId);
-    if (existing && existing.status === "approved") throw new Error("You are already in this room.");
+    // Reconnect, not a duplicate join: on Vercel a connection can close
+    // when its function duration is reached or its instance is recycled,
+    // and the new socket must re-attach to the room. Previously this
+    // threw "You are already in this room", making reconnect impossible
+    // for an approved member. No membership change, no re-approval.
+    if (existing && existing.status === "approved") {
+      socket.roomCode = code;
+      if (!clients.has(code)) clients.set(code, new Set());
+      clients.get(code).add(socket);
+      send(socket, { type: "room.updated", room });
+      return;
+    }
     if (existing) existing.status = "pending";
     else room.members.push({ userId: message.userId, displayName: message.displayName, status: "pending" });
     socket.userId = message.userId;
@@ -243,12 +258,20 @@ async function handle(socket, message) {
 }
 
 const server = http.createServer((request, response) => {
-  if (request.url === "/health") {
+  // Vercel routes this service at /collab, and the service receives the
+  // original path (see docs/VERCEL.md), so /collab/health arrives here as
+  // /collab/health, not /health. Strip that one public prefix for the
+  // HTTP health/ready routes only. WebSocket upgrades are path-agnostic
+  // in this server (no `path` option on WebSocketServer), so /collab
+  // upgrades work without any stripping. Locally there is no prefix, so
+  // plain /health and /ready keep working unchanged.
+  const publicPath = request.url === "/collab" ? "/" : request.url.replace(/^\/collab\//, "/");
+  if (publicPath === "/health") {
     response.writeHead(200, { "content-type": "application/json" });
     response.end(JSON.stringify({ ok: true, status: "healthy", rooms: Object.keys(rooms).length, metrics }));
     return;
   }
-  if (request.url === "/ready") {
+  if (publicPath === "/ready") {
     const ready = roomsLoaded;
     response.writeHead(ready ? 200 : 503, { "content-type": "application/json" });
     response.end(JSON.stringify({ ok: ready, status: ready ? "ready" : "starting", persistence: pool ? "postgresql" : "file" }));

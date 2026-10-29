@@ -111,6 +111,18 @@ export default function HomePage() {
 
   const visibleRepositories = repositories.filter((item) => repositoryFilter === "all" || (repositoryFilter === "private" ? item.private : !item.private));
 
+  function collaborationUrl(): string {
+    // Explicit override wins. Otherwise, on an https site (including any
+    // Vercel deployment) use that same host at /collab, so no one has to
+    // know the deployment domain at build time — NEXT_PUBLIC_* values are
+    // baked into the client bundle. Local http dev keeps localhost:8787.
+    if (process.env.NEXT_PUBLIC_COLLABORATION_URL) return process.env.NEXT_PUBLIC_COLLABORATION_URL;
+    if (typeof window !== "undefined" && window.location.protocol === "https:") {
+      return `wss://${window.location.host}/collab`;
+    }
+    return "ws://localhost:8787";
+  }
+
   async function collaborationCommand(message: Record<string, unknown>) {
     setError("");
     const tokenResponse = await fetch("/api/collaboration/token");
@@ -119,7 +131,11 @@ export default function HomePage() {
       return;
     }
     const { token } = await readJson<{ token: string }>(tokenResponse);
-    const connection = socket || new WebSocket(process.env.NEXT_PUBLIC_COLLABORATION_URL || "ws://localhost:8787");
+    // A closed socket never reopens: on Vercel a connection closes when
+    // its function duration is reached, so a stored CLOSING/CLOSED socket
+    // must be discarded or every later command silently goes nowhere.
+    const liveSocket = socket && socket.readyState <= 1 ? socket : null;
+    const connection = liveSocket || new WebSocket(collaborationUrl());
     setSocket(connection);
     const send = () => {
       connection.send(JSON.stringify({ type: "auth", token }));
@@ -127,6 +143,10 @@ export default function HomePage() {
     };
     if (connection.readyState === WebSocket.OPEN) send();
     else connection.onopen = send;
+    connection.onclose = () => {
+      setSocket((current) => (current === connection ? null : current));
+      setRoomStatus("Collaboration connection closed. Retry the action to reconnect (an approved member can rejoin the same room).");
+    };
     connection.onmessage = (event) => {
       const result = JSON.parse(event.data) as { type: string; room?: { code: string; ownerId: string; members: Array<{ userId: string; displayName: string; status: string }> }; message?: string };
       if (result.room) {

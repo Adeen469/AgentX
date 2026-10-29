@@ -133,6 +133,13 @@ configured.
   capabilities, read-only root, resource limits, disposable staging
   copy at `/work`, fail-closed when Docker is unavailable. See
   `docs/SANDBOX.md` for the threat model and known limits.
+- Vercel multi-service: root `vercel.json` (web at `/`, collaboration
+  container at `/collab`, no `/api` hijack, no bindings) +
+  `apps/server/Dockerfile` + `PORT`-first listening + `/collab`
+  prefix stripping for health/ready + approved-member rejoin +
+  web client auto-deriving `wss://<host>/collab` on https and
+  discarding closed sockets. See `docs/VERCEL.md` for the full
+  service table and the platform limits that remain.
 - `apps/server/src/server.js`: rooms, membership, persistence, and broadcasts.
 - `apps/web/db/001_initial.sql`: database schema.
 - `scripts/dev.js`: combined Windows development launcher.

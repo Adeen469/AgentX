@@ -12,6 +12,11 @@ export async function POST(request: Request) {
   try {
     return NextResponse.json(await runWorkspaceTest(input.workspace, input.command));
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Test execution failed." }, { status: 400 });
+    const message = error instanceof Error ? error.message : "Test execution failed.";
+    // Docker / sandbox infrastructure failures are not test failures and
+    // must not be mistaken for one: report them as unavailable, and never
+    // let the caller retry them as a host run.
+    const status = /docker|sandbox/i.test(message) ? 503 : 400;
+    return NextResponse.json({ error: message }, { status });
   }
 }

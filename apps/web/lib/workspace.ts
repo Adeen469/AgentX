@@ -4,6 +4,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 import type { AuthUser } from "./auth";
 import { githubRequest, type GithubIssue, type GithubRepository } from "./github";
+import { runSandboxedTest } from "./sandbox";
 
 const exec = promisify(execFile);
 
@@ -61,15 +62,11 @@ export function safeWorkspacePath(workspace: string, filePath: string) {
 }
 
 export async function runWorkspaceTest(workspace: string, command: string) {
+  // Phase 2: test code is untrusted and must never run on the host.
+  // runSandboxedTest re-validates the workspace, enforces the same
+  // allowlist, and fails closed (throws) when Docker is unavailable
+  // instead of falling back to a host exec. The old host exec path is
+  // deliberately removed, not kept as a fallback.
   assertManagedWorkspace(workspace);
-  const allowed = new Set(["npm test", "npm run test", "npm run lint", "pytest", "dotnet test", "cargo test", "go test ./..."]);
-  if (!allowed.has(command)) throw new Error("Test command is not allowlisted.");
-  const [executable, ...args] = command.split(" ");
-  try {
-    const result = await exec(executable, args, { cwd: workspace, windowsHide: true, timeout: 10 * 60 * 1000, maxBuffer: 4 * 1024 * 1024 });
-    return { command, passed: true, stdout: result.stdout, stderr: result.stderr };
-  } catch (error) {
-    const failed = error as { stdout?: string; stderr?: string; message?: string };
-    return { command, passed: false, stdout: failed.stdout || "", stderr: failed.stderr || failed.message || "Test failed." };
-  }
+  return runSandboxedTest(workspace, command);
 }

@@ -125,7 +125,14 @@ configured.
 - `apps/web/lib/agent.ts`: AI provider routing and plan validation.
 - `apps/web/lib/auth.ts`: OAuth sessions and collaboration tokens.
 - `apps/web/lib/github.ts`: GitHub integration.
-- `apps/web/lib/workspace.ts`: isolated workspace operations.
+- `apps/web/lib/workspace.ts`: isolated workspace operations. Its test
+  runner now delegates to `sandbox.ts`; the old host `exec` test path
+  was removed, not kept as a fallback.
+- `apps/web/lib/sandbox.ts`: Docker sandbox for tests (Phase 2) —
+  command-driven image selection, `--network none`, dropped
+  capabilities, read-only root, resource limits, disposable staging
+  copy at `/work`, fail-closed when Docker is unavailable. See
+  `docs/SANDBOX.md` for the threat model and known limits.
 - `apps/server/src/server.js`: rooms, membership, persistence, and broadcasts.
 - `apps/web/db/001_initial.sql`: database schema.
 - `scripts/dev.js`: combined Windows development launcher.

@@ -77,6 +77,19 @@ The agent workspace APIs clone repositories into `WORKSPACE_ROOT`, prevent path
 traversal, allow only an explicit test-command allowlist, and require a signed
 human approval token before pushing a branch or opening a pull request.
 
+## Docker sandbox (Phase 2)
+
+Tests never run on the host. `POST /api/workspace/test` runs the
+allowlisted command inside a disposable Docker container with no network,
+dropped capabilities, a read-only root filesystem, CPU/memory/process
+limits, and only a disposable copy of the workspace mounted at `/work`.
+If Docker is missing or its daemon is down, the test fails with a 503
+instead of falling back to host execution. Docker must be installed and
+running on the machine that runs the web server. See
+[docs/SANDBOX.md](./docs/SANDBOX.md) for the full threat model, image
+table, configuration, and known limits (including: no sandboxed
+dependency-install step yet).
+
 See [production readiness](./docs/PRODUCTION-READINESS.md) for deployment,
 performance, reliability, availability, installer, signing, and remaining
 environment requirements.

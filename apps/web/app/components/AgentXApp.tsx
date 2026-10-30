@@ -117,10 +117,11 @@ export default function AgentXApp() {
 
   useEffect(() => { setApprovalPolicy(localStorage.getItem("agentx-approval-policy") || "always_ask"); }, []);
 
-  // Real paths, not hash fragments. middleware rewrites /app/* to /app
-  // /repositories, /collaboration and /settings to / so a refresh or a
-  // direct link never 404s; in-app navigation is a pushState, so the
-  // workflow state in this component is not remounted away.
+  // Real paths, not hash fragments. Each /app/* path is a real route
+  // rendering this shell, so a refresh or a direct link never 404s;
+  // in-app navigation is a pushState, so the workflow state in this
+  // component is not remounted away. No middleware: Vercel services
+  // do not support Edge middleware, and it failed deployments.
   useEffect(() => {
     const sync = () => setActivePage(pageFromPath(window.location.pathname));
     sync();

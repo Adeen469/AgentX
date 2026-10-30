@@ -1,5 +1,8 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import HashRedirect from "./components/HashRedirect";
 import { Icon } from "./components/ui/Icon";
+import { cookieNames, readSession } from "../lib/auth";
 
 type RepoData = {
   full_name: string;
@@ -44,6 +47,19 @@ function formatDate(value: string): string {
 }
 
 export default async function LandingPage() {
+  // Auth routing, no Edge middleware (Vercel services reject it):
+  // a signed-in user never stays on the landing page — they belong in
+  // the app. A missing/invalid session (or a missing AUTH_SECRET, which
+  // makes readSession throw) simply renders the landing page.
+  // NOTE: redirect() itself throws to perform the redirect, so it must
+  // NOT be inside the try/catch — that would swallow the redirect.
+  let sessionUser = null;
+  try {
+    sessionUser = readSession(cookies().get(cookieNames().sessionCookie)?.value);
+  } catch {
+    sessionUser = null;
+  }
+  if (sessionUser) redirect("/app");
   const { repo, commits } = await getLiveData();
   const features = [
     { icon: "issues" as const, title: "Reads the real issue", text: "Loads open issues from the repository you choose on GitHub — title, body, and number — not a pasted description." },

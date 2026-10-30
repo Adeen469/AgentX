@@ -97,6 +97,13 @@ export default function AgentXApp() {
       .finally(() => setAuthLoading(false));
   }, []);
 
+  // Auth routing, the mirror of the landing-page guard: a logged-out
+  // user cannot stay in the app — send them to the landing page to
+  // sign in, instead of showing the app with everything disabled.
+  useEffect(() => {
+    if (!authLoading && !user) window.location.replace("/");
+  }, [authLoading, user]);
+
   useEffect(() => {
     if (!user) return;
     if (user.provider !== "github") return;

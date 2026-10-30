@@ -389,7 +389,12 @@ export default function AgentXApp() {
             <a key={item.page} className={`nav-item ${activePage === item.page ? "is-active" : ""}`} {...navLink(item.page)}><Icon name={item.icon} /><span>{item.label}</span></a>
           ))}
           <div className="nav-group">Connections</div>
-          {navItems.slice(3, 5).map((item) => (
+          {/* Repositories only: Settings is navItems[4] and is rendered
+              once under System below. slice(3, 5) here used to be
+              Repositories + Collaboration, and after the collaboration
+              removal it silently pulled Settings into Connections too,
+              duplicating it. */}
+          {navItems.slice(3, 4).map((item) => (
             <a key={item.page} className={`nav-item ${activePage === item.page ? "is-active" : ""}`} {...navLink(item.page)}><Icon name={item.icon} /><span>{item.label}</span></a>
           ))}
           <div className="nav-group">System</div>

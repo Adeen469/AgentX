@@ -49,7 +49,7 @@ input:focus, textarea:focus, select:focus { border-color: var(--accent); box-sha
 code, pre { font-family: var(--font-code); }
 label { display: block; color: var(--text-muted); font-size: 14px; font-weight: 500; }
 .app { display: flex; flex-direction: column; min-height: 100dvh; }
-.gh-header { display: flex; align-items: center; gap: 16px; height: 56px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
+.gh-header { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 16px; height: 56px; padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--surface); }
 .gh-brand { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 16px; font-weight: 600; white-space: nowrap; }
 .gh-brand:hover { text-decoration: none; }
 .gh-search { position: relative; width: min(420px, 40vw); margin-left: 8px; }
@@ -64,8 +64,8 @@ label { display: block; color: var(--text-muted); font-size: 14px; font-weight: 
 .gh-menu { position: absolute; z-index: 30; right: 0; top: 40px; display: grid; width: 180px; padding: 4px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface-raised); }
 .gh-menu button, .gh-menu a { min-height: 32px; padding: 0 12px; border: 0; border-radius: 4px; color: var(--text); text-align: left; font-size: 14px; }
 .gh-menu button:hover, .gh-menu a:hover { background: var(--accent-soft); text-decoration: none; }
-.shell { display: grid; grid-template-columns: 296px minmax(0, 1fr); flex: 1; min-height: 0; }
-.sidebar { display: flex; flex-direction: column; gap: 4px; min-height: 0; overflow-y: auto; padding: 16px 16px 16px 24px; border-right: 1px solid var(--line-muted); background: var(--bg); }
+.shell { display: grid; grid-template-columns: 296px minmax(0, 1fr); align-items: start; flex: 1; min-height: 0; }
+.sidebar { position: sticky; top: 56px; align-self: start; height: calc(100dvh - 56px); display: flex; flex-direction: column; gap: 4px; overflow-y: auto; padding: 16px 16px 16px 24px; border-right: 1px solid var(--line-muted); background: var(--bg); }
 .brand { display: flex; align-items: center; gap: 8px; padding: 8px 0; font-weight: 600; font-size: 16px; }
 .brand-mark { display: grid; place-items: center; width: 32px; height: 32px; color: var(--text); }
 .nav-group { margin: 24px 0 8px; color: var(--text-faint); font-size: 12px; font-weight: 600; }

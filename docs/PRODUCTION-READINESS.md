@@ -1,3 +1,5 @@
+> NOTE (2026-10-30): Collaborative rooms were removed. There is no collaboration service, no `/collab` route, and no room UI. Older collaboration sections below are obsolete.
+
 # Production readiness and remaining blockers
 
 AgentX now has production-oriented code paths, but a production deployment

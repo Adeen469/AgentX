@@ -23,7 +23,6 @@ const nextConfig = {
       { source: "/workspace", destination: "/app/workspace", permanent: false },
       { source: "/review", destination: "/app/review", permanent: false },
       { source: "/repositories", destination: "/app/repositories", permanent: false },
-      { source: "/collaboration", destination: "/app/collaboration", permanent: false },
       { source: "/settings", destination: "/app/settings", permanent: false },
       { source: "/investigate", destination: "/app", permanent: false },
     ];

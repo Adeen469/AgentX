@@ -8,8 +8,6 @@ and waits for human approval before pushing or opening a pull request.
 
 - Next.js/React/TypeScript web UI
 - Electron packaging entry point for Windows
-- WebSocket collaboration protocol with owner approval
-- Six-character alphanumeric room codes
 - Explicit approval state for irreversible agent actions
 - No paid service is required for the local development path
 
@@ -45,51 +43,17 @@ The GitHub client secret is used only by the server-side callback. Sessions are
 signed with `AUTH_SECRET` and stored in an HttpOnly cookie; no OAuth secret is
 sent to browser code.
 
-## Collaboration server
+## Collaboration (removed)
 
-Run the self-hosted collaboration service in a second terminal:
-
-```powershell
-$env:COLLABORATION_DEV_MODE = "true"
-npm run server
-```
-
-The server exposes `GET http://localhost:8787/health` and a WebSocket endpoint
-at `ws://localhost:8787`. In development mode, the client supplies a temporary
-identity in each protocol message. This mode is intentionally disabled unless
-`COLLABORATION_DEV_MODE=true` is set.
-
-Production authentication is not simulated: the OAuth/session adapter must be
-implemented and connected before this server is exposed to other machines.
-
-For production persistence, apply [001_initial.sql](./apps/web/db/001_initial.sql)
-to PostgreSQL and set a real `DATABASE_URL`; the collaboration server will use
-the `collaboration_rooms` table automatically. Without a valid database URL,
-local development uses the ignored `data/collaboration-rooms.json` file.
-
-After creating the `agentx` database, initialize the schema with:
-
-```powershell
-npm run db:setup
-```
+Collaborative rooms were removed on 2026-10-30. There is no collaboration server, no `/collab` route, and no room UI. PS-05 is a single-user bug-fix agent.
 
 The agent workspace APIs clone repositories into `WORKSPACE_ROOT`, prevent path
 traversal, allow only an explicit test-command allowlist, and require a signed
 human approval token before pushing a branch or opening a pull request.
 
-## Vercel multi-service deployment
+## Vercel deployment
 
-Deploy `web` (Next.js, public at `/` including `/api/*`) and
-`collaboration` (containerized WebSocket server, public only at
-`/collab`) together from the repo-root `vercel.json`. Do not use
-Vercel's auto-suggested `/api/(.*)` → server mapping: it would send
-every Next.js API route to a server that only speaks WebSocket.
-There are no service bindings, because no service calls another
-service — the browser connects to `/collab` directly. See
-[docs/VERCEL.md](./docs/VERCEL.md) for the service table, import
-steps, environment variables, and the platform limits that remain
-(300-second Hobby connection cap, no cross-instance broadcast
-without Redis, no Docker sandbox on Vercel).
+Deploy the web service only (Next.js, public at `/` including `/api/*`) from the repo-root `vercel.json`. There is no collaboration container service.
 
 ## Docker sandbox (Phase 2)
 

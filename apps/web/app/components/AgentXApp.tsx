@@ -9,14 +9,13 @@ type Issue = { number: number; title: string; body: string | null; html_url: str
 type Plan = { summary: string; steps: string[]; likelyFiles: string[]; validationCommands: string[]; irreversibleActions: string[] };
 type TestResult = { command: string; passed: boolean; stdout: string; stderr: string; sandboxed?: boolean; image?: string };
 
-const PAGES = ["investigate", "workspace", "review", "repositories", "collaboration", "settings"] as const;
+const PAGES = ["investigate", "workspace", "review", "repositories", "settings"] as const;
 type Page = (typeof PAGES)[number];
 const PAGE_PATHS: Record<Page, string> = {
   investigate: "/app",
   workspace: "/app/workspace",
   review: "/app/review",
   repositories: "/app/repositories",
-  collaboration: "/app/collaboration",
   settings: "/app/settings",
 };
 const PATH_PAGES: Record<string, Page> = {
@@ -24,7 +23,6 @@ const PATH_PAGES: Record<string, Page> = {
   "/app/workspace": "workspace",
   "/app/review": "review",
   "/app/repositories": "repositories",
-  "/app/collaboration": "collaboration",
   "/app/settings": "settings",
 };
 
@@ -80,11 +78,6 @@ export default function AgentXApp() {
   const [sandboxNotice, setSandboxNotice] = useState("");
   const [notice, setNotice] = useState("");
   const [activePage, setActivePage] = useState<Page>("investigate");
-  const [roomCode, setRoomCode] = useState("");
-  const [createdRoom, setCreatedRoom] = useState("");
-  const [roomMembers, setRoomMembers] = useState<Array<{ userId: string; displayName: string; status: string }>>([]);
-  const [roomStatus, setRoomStatus] = useState("");
-  const [socket, setSocket] = useState<WebSocket | null>(null);
   const [repositoryQuery, setRepositoryQuery] = useState("");
   const [headerQuery, setHeaderQuery] = useState("");
   const [repositoryFilter, setRepositoryFilter] = useState<"all" | "public" | "private">("all");
@@ -205,40 +198,6 @@ export default function AgentXApp() {
   }
 
   const visibleRepositories = repositories.filter((item) => repositoryFilter === "all" || (repositoryFilter === "private" ? item.private : !item.private));
-
-  function collaborationUrl(): string {
-    if (process.env.NEXT_PUBLIC_COLLABORATION_URL) return process.env.NEXT_PUBLIC_COLLABORATION_URL;
-    if (typeof window !== "undefined" && window.location.protocol === "https:") return `wss://${window.location.host}/collab`;
-    return "ws://localhost:8787";
-  }
-
-  async function collaborationCommand(message: Record<string, unknown>) {
-    setError("");
-    const tokenResponse = await fetch("/api/collaboration/token");
-    if (!tokenResponse.ok) { setRoomStatus("Sign in before using collaboration."); return; }
-    const { token } = await readJson<{ token: string }>(tokenResponse);
-    const liveSocket = socket && socket.readyState <= 1 ? socket : null;
-    const connection = liveSocket || new WebSocket(collaborationUrl());
-    setSocket(connection);
-    const send = () => {
-      connection.send(JSON.stringify({ type: "auth", token }));
-      connection.send(JSON.stringify(message));
-    };
-    if (connection.readyState === WebSocket.OPEN) send(); else connection.onopen = send;
-    connection.onclose = () => {
-      setSocket((current) => (current === connection ? null : current));
-      setRoomStatus("Collaboration connection closed. Retry the action to reconnect (an approved member can rejoin the same room).");
-    };
-    connection.onmessage = (event) => {
-      const result = JSON.parse(event.data) as { type: string; room?: { code: string; ownerId: string; members: Array<{ userId: string; displayName: string; status: string }> }; message?: string };
-      if (result.room) {
-        setRoomMembers(result.room.members);
-        if (result.room.code) setCreatedRoom(result.room.code);
-      }
-      setRoomStatus(result.type === "error" ? `Collaboration error: ${result.message || "Request failed."}` : result.message || (result.type === "room.created" ? "Room created. Approve each join request." : "Room updated."));
-    };
-    connection.onerror = () => setRoomStatus("Could not connect to the collaboration server.");
-  }
 
   async function loadIssues() {
     if (!repository) return;
@@ -380,7 +339,6 @@ export default function AgentXApp() {
     { page: "workspace", label: "Workspace", icon: "activity" },
     { page: "review", label: "Review & approve", icon: "check" },
     { page: "repositories", label: "Repositories", icon: "repository" },
-    { page: "collaboration", label: "Collaboration", icon: "users" },
     { page: "settings", label: "Settings", icon: "settings" },
   ];
 
@@ -565,27 +523,6 @@ export default function AgentXApp() {
                     {approvalToken ? <button className="primary" onClick={() => void openPullRequest()} disabled={busy === "pr"}>{busy === "pr" ? "Opening..." : "Confirm & open pull request"}</button> : <button className="primary" onClick={() => void requestApproval()} disabled={!diff || !testResult?.passed || busy === "approval"}>{busy === "approval" ? "Preparing..." : "Approve reviewed patch"}</button>}
                   </div>
                   {pullRequestUrl && <p className="flash flash-success"><a href={pullRequestUrl} target="_blank" rel="noreferrer">Open pull request on GitHub</a></p>}
-                </section>
-              </section>
-            )}
-
-            {activePage === "collaboration" && (
-              <section className="page-view">
-                <div className="content-head"><div><h1>Collaboration</h1><p className="subtle">Live editing rooms are private: a code alone never grants access, and the owner approves every join request.</p></div></div>
-                <section className="card card-body collaboration-view">
-                  <div className="form-grid"><label>Join room by code<input value={roomCode} maxLength={6} onChange={(event) => setRoomCode(event.target.value.replace(/[^A-Za-z0-9]/g, ""))} placeholder="6-character code" /></label><button className="secondary action-button" onClick={() => void collaborationCommand({ type: "room.join.request", code: roomCode.trim() })} disabled={roomCode.trim().length !== 6}>Request to join</button></div>
-                  <button className="primary" onClick={() => void collaborationCommand({ type: "room.create" })}>Create collaboration room</button>
-                  {createdRoom && <p className="flash flash-success">Owner room code: <strong className="mono">{createdRoom}</strong>. Share it with invitees; approve them below.</p>}
-                  {roomStatus && <p className="flash">{roomStatus}</p>}
-                  <div className="member-list">
-                    {roomMembers.length === 0 ? <p className="subtle">No members or pending requests yet.</p> : roomMembers.map((member) => (
-                      <div className="member-row" key={member.userId}><span>{member.displayName} · {member.status}</span>
-                        {member.status === "pending" && user?.id !== member.userId && <button onClick={() => void collaborationCommand({ type: "room.join.approve", code: createdRoom, userId: member.userId })}>Approve</button>}
-                        {member.status === "approved" && user?.id !== member.userId && <button className="secondary" onClick={() => void collaborationCommand({ type: "room.member.remove", code: createdRoom, userId: member.userId })}>Remove</button>}
-                        {member.status === "approved" && user?.id === member.userId && createdRoom !== "" && <button className="secondary" onClick={() => void collaborationCommand({ type: "room.leave", code: createdRoom })}>Leave room</button>}
-                      </div>
-                    ))}
-                  </div>
                 </section>
               </section>
             )}

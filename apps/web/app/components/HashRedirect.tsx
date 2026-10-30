@@ -9,7 +9,6 @@ const HASH_PAGES: Record<string, string> = {
   workspace: "/app/workspace",
   review: "/app/review",
   repositories: "/app/repositories",
-  collaboration: "/app/collaboration",
   settings: "/app/settings",
 };
 

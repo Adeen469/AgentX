@@ -35,12 +35,6 @@ export function createSession(user: AuthUser): string {
   return `${payload}.${sign(payload)}`;
 }
 
-export function createCollaborationToken(user: AuthUser): string {
-  const collaborationUser = { id: user.id, email: user.email, name: user.name, picture: user.picture, provider: user.provider };
-  const payload = Buffer.from(JSON.stringify({ user: collaborationUser, exp: Date.now() + 5 * 60 * 1000 })).toString("base64url");
-  return `${payload}.${sign(payload)}`;
-}
-
 export function readSession(value: string | undefined): AuthUser | null {
   if (!value) return null;
   const [payload, signature] = value.split(".");

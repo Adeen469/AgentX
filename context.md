@@ -15,15 +15,13 @@ pushing or opening a pull request. AgentX must not merge changes automatically.
 ## Repository layout
 
 - `apps/web`: Next.js 14 web app, React UI, OAuth, GitHub APIs, AI planning,
-  workspace APIs, and collaboration-token route.
-- `apps/server`: Node.js WebSocket collaboration server with PostgreSQL or
+  workspace APIs.
   file persistence.
 - `apps/desktop`: Electron/Windows packaging entry point and installer assets.
-- `packages/collaboration`: shared collaboration package.
 - `apps/web/db/001_initial.sql`: PostgreSQL schema.
 - `scripts/setup-database.js`: database initialization.
 - `scripts/validate-environment.js`: safe environment check.
-- `scripts/dev.js`: Windows launcher for web and collaboration services.
+- `scripts/dev.js`: Windows launcher for the web service.
 - `docs/PRODUCTION-READINESS.md`: deployment and hardening checklist.
 
 ## Development commands
@@ -36,7 +34,7 @@ npm run validate:env
 npm run dev
 ```
 
-`npm run dev` starts Next.js and the collaboration server. The normal endpoints
+`npm run dev` starts Next.js. The normal endpoints
 are `http://localhost:3000` and `ws://localhost:8787`; readiness is checked at
 `http://localhost:8787/ready`. If port 3000 is occupied, Next.js selects
 another port such as 3001. Stop stale processes by their specific PID.
@@ -45,7 +43,6 @@ Useful commands:
 
 ```powershell
 npm run dev:web
-npm run dev:collaboration
 npm run server
 npm run db:setup
 npm run typecheck
@@ -98,32 +95,15 @@ GitHub access is required for private repositories, the signed-in user's
 repository list, and pull requests. Never expose OAuth secrets or GitHub access
 tokens to browser code.
 
-## Collaboration behavior
+## Collaboration (removed)
 
-The collaboration server is `apps/server/src/server.js`, with UI in the
-collaboration section of `apps/web/app/page.tsx`.
-
-- Room codes are six-character alphanumeric values.
-- A room code alone never grants access.
-- Join requests are `pending` until approved by the room owner.
-- Only the owner can approve or remove another member.
-- A non-owner approved member can leave.
-- Editor changes are broadcast only to approved members.
-- WebSocket authentication uses a short-lived signed token from
-  `/api/collaboration/token`.
-- PostgreSQL stores room state in `collaboration_rooms`.
-- The room owner is upserted into `users` before room insertion, preventing the
-  `collaboration_rooms_owner_id_fkey` failure.
-
-`GET /ready` must return HTTP 200 with `ok: true` before testing room creation.
-The server reports `persistence: postgresql` when a real `DATABASE_URL` is
-configured.
+Collaborative rooms were removed on 2026-10-30. Ignore any older collaboration references in this file.
 
 ## Main files
 
 - `apps/web/app/page.tsx`: app shell and workflow UI.
 - `apps/web/lib/agent.ts`: AI provider routing and plan validation.
-- `apps/web/lib/auth.ts`: OAuth sessions and collaboration tokens.
+- `apps/web/lib/auth.ts`: OAuth sessions.
 - `apps/web/lib/github.ts`: GitHub integration.
 - `apps/web/lib/workspace.ts`: isolated workspace operations. Its test
   runner now delegates to `sandbox.ts`; the old host `exec` test path
@@ -133,11 +113,7 @@ configured.
   capabilities, read-only root, resource limits, disposable staging
   copy at `/work`, fail-closed when Docker is unavailable. See
   `docs/SANDBOX.md` for the threat model and known limits.
-- Vercel multi-service: root `vercel.json` (web at `/`, collaboration
-  container at `/collab`, no `/api` hijack, no bindings) +
-  `apps/server/Dockerfile` + `PORT`-first listening + `/collab`
-  prefix stripping for health/ready + approved-member rejoin +
-  web client auto-deriving `wss://<host>/collab` on https and
+- Vercel: web service only from the repo-root `vercel.json`.
   discarding closed sockets. See `docs/VERCEL.md` for the full
   service table and the platform limits that remain.
 - `apps/server/src/server.js`: rooms, membership, persistence, and broadcasts.
@@ -159,5 +135,4 @@ configured.
 
 1. Run the smallest relevant typecheck or syntax check.
 2. Run `npm run validate:env` for environment changes.
-3. Verify `/ready` for collaboration changes.
 4. Verify the relevant browser interaction for UI changes.

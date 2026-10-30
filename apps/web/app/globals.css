@@ -170,8 +170,6 @@ label { display: block; color: var(--text-muted); font-size: 14px; font-weight: 
 .setting-row:last-child { border-bottom: 0; }
 .setting-row strong { display: block; margin-bottom: 4px; }
 .setting-row code { color: var(--text-muted); font: 12px var(--font-code); }
-.collaboration-view { display: grid; gap: 16px; }
-.member-list { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
 .filter-tabs { display: flex; gap: 4px; margin-bottom: 12px; }
 .filter-tabs button { min-height: 32px; padding: 0 12px; color: var(--text-muted); border-color: var(--line); background: var(--surface); }
 .filter-tabs button.active { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
@@ -188,9 +186,6 @@ label { display: block; color: var(--text-muted); font-size: 14px; font-weight: 
 .join-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .join-row input { flex: 1; min-width: 0; font-family: var(--font-code); letter-spacing: .08em; }
 .join-row button { flex: none; }
-.member-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; }
-.member-row span { flex: 1; color: var(--text-muted); }
-.member-row button { min-height: 28px; padding: 0 12px; }
 .connection-status { display: inline-flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 14px; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px rgb(63 185 80 / .18); }
 .approval { margin-top: 24px; padding: 16px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface); }

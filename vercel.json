@@ -4,26 +4,9 @@
     "web": {
       "root": "apps/web",
       "framework": "nextjs"
-    },
-    "collaboration": {
-      "root": "apps/server",
-      "runtime": "container",
-      "entrypoint": "Dockerfile"
     }
   },
   "rewrites": [
-    {
-      "source": "/collab",
-      "destination": {
-        "service": "collaboration"
-      }
-    },
-    {
-      "source": "/collab/(.*)",
-      "destination": {
-        "service": "collaboration"
-      }
-    },
     {
       "source": "/(.*)",
       "destination": {

@@ -1,3 +1,5 @@
+> NOTE (2026-10-30): Collaborative rooms were removed. There is no collaboration service, no `/collab` route, and no room UI. Older collaboration sections below are obsolete.
+
 # Vercel multi-service deployment (properly fixed)
 
 This is the corrected version of Vercel's auto-suggested Services config.

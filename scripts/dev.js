@@ -6,8 +6,7 @@ const webEnvironment = {
   NEXT_IGNORE_INCORRECT_LOCKFILE: "1"
 };
 const children = [
-  spawn(npmCommand, ["run", "dev:web"], { stdio: "inherit", env: webEnvironment, shell: process.platform === "win32" }),
-  spawn(npmCommand, ["run", "dev:collaboration"], { stdio: "inherit", env: process.env, shell: process.platform === "win32" })
+  spawn(npmCommand, ["run", "dev:web"], { stdio: "inherit", env: webEnvironment, shell: process.platform === "win32" })
 ];
 
 let shuttingDown = false;

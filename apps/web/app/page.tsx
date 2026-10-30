@@ -162,7 +162,6 @@ export default async function LandingPage() {
               Sandbox tests need a Docker daemon, so on the Vercel deployment they return 503 instead of
               silently running on the host. Workspaces on Vercel are ephemeral. For the full flow — clone,
               edit, sandbox test, approve, open a PR — run AgentX locally with git and Docker installed.
-              Collaboration rooms on the Hobby plan also cap connections at 300 seconds and reconnect.
             </p>
           </div>
         </section>

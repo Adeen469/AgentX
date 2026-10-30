@@ -11,13 +11,10 @@ export async function githubRequest<T>(user: AuthUser | null, endpoint: string, 
     headers: { ...githubHeaders(user), ...(init?.headers || {}) }
   });
   if (response.status === 401) {
-    if (user?.githubAccessToken) {
-      response = await fetch(`https://api.github.com${endpoint}`, {
-        ...init,
-        headers: { ...githubHeaders(null), ...(init?.headers || {}) }
-      });
-      if (response.ok) return response.json() as Promise<T>;
-    }
+    // Do not fall back to an unauthenticated request here: it would return
+    // public data (or an empty list) and hide the fact that the saved token
+    // was rejected, so a later private-repo, clone, or PR step would fail
+    // with no clear cause. Surface the expired token now.
     throw new Error(user?.githubAccessToken
       ? "GitHub authorization was rejected or expired. Sign out and reconnect GitHub."
       : "This repository requires GitHub authorization.");

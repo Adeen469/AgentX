@@ -15,7 +15,10 @@ export async function POST(request: Request) {
   const input = await request.json() as { approvalToken?: string };
   if (!input.approvalToken) return NextResponse.json({ error: "Human approval is required." }, { status: 400 });
   try {
-    const payload = verifyApproval(input.approvalToken, user, "open_pull_request") as { workspace: string; repository: string; branch: string; base?: string; title: string; body: string };
+    const payload = verifyApproval(input.approvalToken, user, "open_pull_request") as { workspace: string; repository: string; branch: string; base?: string; title: string; body: string; testPassed?: boolean; diff?: string };
+    if (payload.testPassed !== true || typeof payload.diff !== "string" || !payload.diff.trim()) {
+      throw new Error("Approval does not cover a passing test and a non-empty patch. Re-run the tests and re-approve.");
+    }
     if (!/^[^/]+\/[^/]+$/.test(payload.repository) || !/^[A-Za-z0-9._/-]+$/.test(payload.branch)) throw new Error("Invalid pull request payload.");
     await exec("git", ["-c", `http.extraheader=AUTHORIZATION: bearer ${user.githubAccessToken}`, "push", "origin", payload.branch], { cwd: payload.workspace, windowsHide: true, timeout: 120000 });
     const pr = await githubRequest<{ html_url: string; number: number }>(user, `/repos/${payload.repository}/pulls`, {

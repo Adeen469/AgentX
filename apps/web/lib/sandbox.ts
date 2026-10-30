@@ -383,7 +383,17 @@ export async function runSandboxedTest(
       if (failed.killed || /timed out|ETIMEDOUT/i.test(failed.message || "")) {
         timedOut = true;
       }
-      if (!timedOut && isDockerInfraError(stderr, failed.code)) {
+      if (timedOut) {
+        return {
+          command,
+          passed: false,
+          stdout,
+          stderr: "Test timed out inside the sandbox.",
+          sandboxed: true,
+          image,
+        };
+      }
+      if (isDockerInfraError(stderr, failed.code)) {
         throw new Error(
           `Docker sandbox failed before the test could run: ${stderr.trim() || failed.message || "unknown Docker error"}`,
         );

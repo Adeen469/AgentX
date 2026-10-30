@@ -108,7 +108,8 @@ async function requestProvider(provider: Provider, input: PlanInput): Promise<Ag
     const completion = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
     const content = completion.choices?.[0]?.message?.content;
     if (!content) throw new Error("Provider returned an empty plan.");
-    return normalizePlan(JSON.parse(content));
+    const cleaned = content.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+    return normalizePlan(JSON.parse(cleaned));
   } finally {
     clearTimeout(timeout);
   }

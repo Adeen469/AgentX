@@ -29,7 +29,8 @@ export async function createWorkspace(user: AuthUser, repository: string, issueN
   try {
     const cloneArgs = ["clone", "--depth", "1", "--branch", repo.default_branch, repo.clone_url, target];
     if (repo.private && user.githubAccessToken) {
-      cloneArgs.unshift(`http.extraheader=AUTHORIZATION: bearer ${user.githubAccessToken}`, "-c");
+      // git -c <option> clone ... : the -c flag must come before the subcommand.
+      cloneArgs.unshift("-c", `http.extraheader=AUTHORIZATION: bearer ${user.githubAccessToken}`);
     }
     await exec("git", cloneArgs, { windowsHide: true });
   } catch (error) {
@@ -57,7 +58,9 @@ export function assertManagedWorkspace(workspace: string) {
 export function safeWorkspacePath(workspace: string, filePath: string) {
   const root = assertManagedWorkspace(workspace);
   const target = path.resolve(root, filePath);
-  if (!target.startsWith(`${root}${path.sep}`)) throw new Error("File path escapes workspace.");
+  // The root itself is valid (the file-tree listing asks for "."); anything
+  // under it is valid; anything outside it is rejected.
+  if (target !== root && !target.startsWith(`${root}${path.sep}`)) throw new Error("File path escapes workspace.");
   return target;
 }
 

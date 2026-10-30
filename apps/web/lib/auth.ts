@@ -5,7 +5,7 @@ export interface AuthUser {
   email: string;
   name: string;
   picture?: string;
-  provider: "google" | "github";
+  provider: "github";
   githubAccessToken?: string;
 }
 
@@ -51,7 +51,10 @@ export function readSession(value: string | undefined): AuthUser | null {
   if (actualBuffer.length !== expectedBuffer.length || !timingSafeEqual(actualBuffer, expectedBuffer)) return null;
   try {
     const parsed = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as { user: AuthUser; exp: number };
-    return parsed.exp > Date.now() ? parsed.user : null;
+    if (parsed.exp <= Date.now()) return null;
+  // Only GitHub sessions are valid now; a session minted by the removed provider flow is rejected.
+  if (parsed.user.provider !== "github") return null;
+  return parsed.user;
   } catch {
     return null;
   }
@@ -63,30 +66,6 @@ export function secureCookie(value: string, maxAge: number): string {
 
 export function clearCookie(): string {
   return `${sessionCookie}=; HttpOnly; Path=/; SameSite=Lax; Max-Age=0`;
-}
-
-export async function exchangeGoogleCode(code: string, redirectUri: string): Promise<AuthUser> {
-  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams({
-      code,
-      client_id: requireEnv("GOOGLE_CLIENT_ID"),
-      client_secret: requireEnv("GOOGLE_CLIENT_SECRET"),
-      redirect_uri: redirectUri,
-      grant_type: "authorization_code"
-    })
-  });
-  if (!tokenResponse.ok) throw new Error("Google authorization code exchange failed.");
-  const token = await tokenResponse.json() as { access_token?: string };
-  if (!token.access_token) throw new Error("Google did not return an access token.");
-  const profileResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
-    headers: { authorization: `Bearer ${token.access_token}` }
-  });
-  if (!profileResponse.ok) throw new Error("Google profile lookup failed.");
-  const profile = await profileResponse.json() as { sub?: string; email?: string; name?: string; picture?: string };
-  if (!profile.sub || !profile.email || !profile.name) throw new Error("Google profile is incomplete.");
-  return { id: profile.sub, email: profile.email, name: profile.name, picture: profile.picture, provider: "google" };
 }
 
 export async function exchangeGithubCode(code: string, redirectUri: string): Promise<AuthUser> {

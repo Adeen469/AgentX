@@ -90,7 +90,7 @@ invalid plans. It must never return a fake plan after all providers fail.
 
 ## Authentication and GitHub
 
-Google and GitHub OAuth callbacks are under
+The GitHub OAuth callback is under
 `apps/web/app/api/auth/callback`. Sessions are signed with `AUTH_SECRET` and
 stored in an HttpOnly cookie. Public repository search, issue loading, metadata
 lookup, and cloning work without repository ownership or a GitHub OAuth token.

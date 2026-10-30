@@ -116,7 +116,6 @@ bugs this config claims to solve:
    Services project) and add for Production:
    - `AUTH_SECRET` — new random value, required for sessions and
      collaboration tokens.
-   - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
    - `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`
    - At least one AI key for plans: `GROQ_API_KEY` (or Gemini /
      OpenRouter / NVIDIA).
@@ -129,9 +128,7 @@ bugs this config claims to solve:
      collaboration service on Vercel; the container runtime manages
      `PORT`. Do not paste any secret value in chat or in the repo.
 4. Deploy.
-5. After the first deploy, add the exact callbacks in Google Cloud
-   and in your GitHub OAuth app:
-   - `https://<your-domain>/api/auth/callback/google`
+5. After the first deploy, add the exact callback in your GitHub OAuth app:
    - `https://<your-domain>/api/auth/callback/github`
    These go to the `web` service, which is correct — do not point
    them at `/collab`.

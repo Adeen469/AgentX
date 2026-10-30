@@ -3,8 +3,6 @@ const path = require("node:path");
 
 const required = ["AUTH_SECRET", "DATABASE_URL"];
 const optional = [
-  "GOOGLE_CLIENT_ID",
-  "GOOGLE_CLIENT_SECRET",
   "GITHUB_Client_ID",
   "GITHUB_Client_Secret",
   "GROQ_API_KEY",

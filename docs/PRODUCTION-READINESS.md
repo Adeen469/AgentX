@@ -12,7 +12,7 @@ still requires these environment and operational steps.
    - Confirm `GET /ready` returns HTTP 200.
 
 2. **OAuth callback configuration**
-   - Register the exact Google and GitHub callback URLs for the deployed domain.
+   - Register the exact GitHub callback URL for the deployed domain.
    - Do not use localhost callbacks in production.
    - Rotate any OAuth or AI credentials that were exposed during development.
 

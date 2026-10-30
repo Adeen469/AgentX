@@ -26,7 +26,7 @@ npm run dev
 The local-model path can use any local OpenAI-compatible endpoint. Do not add
 secrets to source control.
 
-## Google sign-in
+## GitHub sign-in (the only sign-in)
 
 Start the web app with the repository root `.env.local` loaded by Next.js:
 
@@ -34,14 +34,14 @@ Start the web app with the repository root `.env.local` loaded by Next.js:
 npm run dev
 ```
 
-Then open `http://localhost:3000` and select **Sign in with Google**. The
-callback URI configured in Google Cloud must exactly match:
+Then open `http://localhost:3000` and select **Sign in with GitHub**. The
+callback URI configured in the GitHub OAuth app must exactly match:
 
 ```text
-http://localhost:3000/api/auth/callback/google
+http://localhost:3000/api/auth/callback/github
 ```
 
-The Google client secret is used only by the server-side callback. Sessions are
+The GitHub client secret is used only by the server-side callback. Sessions are
 signed with `AUTH_SECRET` and stored in an HttpOnly cookie; no OAuth secret is
 sent to browser code.
 

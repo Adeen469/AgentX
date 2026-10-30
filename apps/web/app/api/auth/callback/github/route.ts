@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   try {
     const redirectUri = process.env.GITHUB_REDIRECT_URI || `${url.origin}/api/auth/callback/github`;
     const user = await exchangeGithubCode(code, redirectUri);
-    const response = NextResponse.redirect(new URL("/", request.url));
+    const response = NextResponse.redirect(new URL("/app", request.url));
     response.headers.set("Set-Cookie", `agentx_session=${secureCookie(createSession(user), 7 * 24 * 60 * 60)}`);
     return response;
   } catch (error) {

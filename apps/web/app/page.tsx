@@ -91,6 +91,8 @@ export default function HomePage() {
   const [contextPosition, setContextPosition] = useState({ x: 0, y: 0 });
   const [approvalPolicy, setApprovalPolicy] = useState("always_ask");
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -155,6 +157,12 @@ export default function HomePage() {
   function navigate(page: Page) {
     window.history.pushState(null, "", PAGE_PATHS[page]);
     setActivePage(page);
+    setSidebarOpen(false);
+  }
+  function toggleSidebar() {
+    // Desktop: collapse to icons. Mobile (drawer): open/close the drawer.
+    if (typeof window !== "undefined" && window.innerWidth <= 900) setSidebarOpen((open) => !open);
+    else setSidebarCollapsed((collapsed) => !collapsed);
   }
   function navLink(page: Page) {
     return {
@@ -377,6 +385,7 @@ export default function HomePage() {
   return (
     <div className="app">
       <header className="gh-header">
+        <button className="gh-icon-btn" onClick={toggleSidebar} title="Toggle sidebar" aria-label="Toggle sidebar"><Icon name="menu" /></button>
         <a className="gh-brand" {...navLink("investigate")}><Icon name="github" size={32} />AgentX</a>
         <div className="gh-search">
           <span className="search-icon"><Icon name="search" size={16} /></span>
@@ -405,8 +414,9 @@ export default function HomePage() {
         </div>
       </header>
 
-      <div className="shell">
+      <div className={`shell${sidebarCollapsed ? " sidebar-collapsed" : ""}${sidebarOpen ? " sidebar-open" : ""}`}>
         <aside className="sidebar">
+          <div className="sidebar-nav">
           <div className="nav-group">Bug-fix workflow</div>
           {navItems.slice(0, 3).map((item) => (
             <a key={item.page} className={`nav-item ${activePage === item.page ? "is-active" : ""}`} {...navLink(item.page)}><Icon name={item.icon} /><span>{item.label}</span></a>
@@ -429,6 +439,7 @@ export default function HomePage() {
             {!user && <p className="faint">Sign in to see your repositories.</p>}
           </div>
           {repositories.length > 8 && <a className="nav-item" {...navLink("repositories")}>Show more</a>}
+          </div>
           <div className="sidebar-foot">
             <div className="user">
               {user?.picture ? <img className="gh-avatar" src={user.picture} alt="" /> : <span className="avatar">{initials}</span>}
@@ -439,6 +450,7 @@ export default function HomePage() {
             </div>
           </div>
         </aside>
+        {sidebarOpen && <button className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar" />}
 
         <section className="main">
           <div className="content">
@@ -453,6 +465,12 @@ export default function HomePage() {
                     <h1>{user ? `${greeting()}, ${user.name.split(" ")[0]}!` : "Investigate a bug"}</h1>
                     <p className="subtle">Read the issue, reproduce it in isolation, make a tested change, and review the patch before GitHub.</p>
                   </div>
+                </div>
+                <div className="stats-grid">
+                  <div className="stat-card"><strong>{repositories.length}</strong><span>Repositories loaded</span></div>
+                  <div className="stat-card"><strong>{issues.length}</strong><span>Open issues loaded</span></div>
+                  <div className="stat-card"><strong>{workspace ? "Ready" : "None"}</strong><span>Workspace</span></div>
+                  <div className="stat-card"><strong>{testResult ? (testResult.passed ? "Passed" : "Failed") : "Not run"}</strong><span>Last sandbox test</span></div>
                 </div>
                 {!user && <div className="flash">Sign in with GitHub to access repositories, issues, and the isolated workspace.</div>}
                 <section className="card workflow-card">

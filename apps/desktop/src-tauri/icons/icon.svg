@@ -1,0 +1,23 @@
+<!-- AgentX desktop icon (source of truth for all icon sizes).
+     Dark navy rounded square (#0f172a) with a blue (#2563eb) inner panel and
+     white "AX" letters — matches the placeholder AX icons this replaces.
+     The letters are STROKED PATHS, not <text>: the Tauri icon tool renders
+     SVG without system fonts, so text elements come out blank. Paths render
+     identically everywhere.
+     This is a TEXT file (SVG), so it can be committed to git, unlike the
+     generated PNG/ICO set. Run `cargo tauri icon` (or `npx tauri icon`) from
+     apps/desktop/src-tauri to regenerate icons/*.png + icons/icon.ico from it.
+     The GitHub Actions workflow (.github/workflows/build-windows.yml) does
+     this automatically when the PNG/ICO set is missing (e.g. fresh clone). -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect width="1024" height="1024" rx="224" fill="#0f172a"/>
+  <rect x="72" y="72" width="880" height="880" rx="176" fill="#2563eb"/>
+  <g fill="none" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Letter A: two legs + crossbar -->
+    <path d="M250 750 L350 300 L450 750" stroke-width="70"/>
+    <path d="M300 620 L400 620" stroke-width="60"/>
+    <!-- Letter X: two crossing strokes -->
+    <path d="M575 300 L775 750" stroke-width="70"/>
+    <path d="M775 300 L575 750" stroke-width="70"/>
+  </g>
+</svg>

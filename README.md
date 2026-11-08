@@ -178,8 +178,26 @@ Building the desktop app needs the Rust toolchain (`rustup`, stable)
 as well as Node: `npm run build --workspace @agentx/desktop` runs
 `tauri build` (which first runs `npm run build:web`), and `npm run dev
 --workspace @agentx/desktop` runs `tauri dev` against the web dev
-server. The Windows installer can only be built on Windows (or a
-Windows CI runner) — a Linux `tauri build` cannot produce NSIS.
+server. The Windows installer can also be built from Linux by
+cross-compiling: install `cargo-xwin` (`cargo install cargo-xwin`), the
+`x86_64-pc-windows-msvc` rustup target, `makensis` (`apt install nsis`),
+`llvm-rc` (`apt install llvm`) and `clang-cl` (Ubuntu's clang package
+does not ship it — symlink the clang driver:
+`ln -s /usr/lib/llvm-18/bin/clang /usr/local/bin/clang-cl`), then run
+`tauri build --target x86_64-pc-windows-msvc --runner cargo-xwin` from
+`apps/desktop`. (Verified 2026-11-08: this produces a real NSIS
+installer, `AgentX_0.1.0_x64-setup.exe`, 19.55 MiB.) The installer is
+unsigned in that case — signing needs a Windows host or a custom
+`sign_command` (`bundler > windows > sign_command`).
+
+Getting the installer without a Windows machine: GitHub Actions builds
+it — see `.github/workflows/build-windows.yml`. In the repo, open the
+Actions tab → "Build Windows installer" → Run workflow (optional tag,
+default `v0.1.0-tauri`); the run uploads the installer as the
+`agentx-windows-installer` artifact, and a manual run also attaches it
+to a GitHub Release with that tag. The workflow regenerates the PNG/ICO
+icons from `src-tauri/icons/icon.svg` when they are missing (the binary
+icon files cannot be committed to git; the SVG is the source of truth).
 
 Unlike the old Electron shell, Tauri does not bundle Chromium: the app
 renders in WebView2, which must be present on the user's Windows

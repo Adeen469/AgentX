@@ -16,7 +16,7 @@
     "active": true,
     "category": "DeveloperTool",
     "copyright": "Copyright \u00a9 2026 AgentX contributors",
-    "licenseFile": "../../LICENSE.txt",
+    "licenseFile": "../../../LICENSE.txt",
     "resources": {
       "../../../apps/web/.next/standalone": "web",
       "../../../apps/web/.next/static": "web/.next/static"

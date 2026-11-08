@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 //! AgentX desktop shell (Tauri).
 //!
 //! Mirrors the old Electron `main.js`: a single 1440x900 window that loads

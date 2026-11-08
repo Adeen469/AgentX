@@ -6,7 +6,7 @@ import { githubRequest, type GithubRepository } from "../../../../lib/github";
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const user = readSession(cookies().get(cookieNames().sessionCookie)?.value);
+  const user = readSession((await cookies()).get(cookieNames().sessionCookie)?.value);
   const query = new URL(request.url).searchParams.get("q")?.trim();
   if (!query) return NextResponse.json({ repositories: [] });
   if (query.length > 100) return NextResponse.json({ error: "Search query is too long." }, { status: 400 });

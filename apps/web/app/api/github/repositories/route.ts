@@ -5,7 +5,7 @@ import { cookieNames, readSession } from "../../../../lib/auth";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const user = readSession(cookies().get(cookieNames().sessionCookie)?.value);
+  const user = readSession((await cookies()).get(cookieNames().sessionCookie)?.value);
   if (!user?.githubAccessToken) return NextResponse.json({ error: "GitHub authorization required." }, { status: 401 });
   const response = await fetch("https://api.github.com/user/repos?sort=updated&per_page=50", {
     headers: { accept: "application/vnd.github+json", authorization: `Bearer ${user.githubAccessToken}`, "user-agent": "AgentX" }

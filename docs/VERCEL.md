@@ -1,7 +1,7 @@
 # Vercel deployment (web-only)
 
-> This doc describes the deployment as it stands at `main` `a910f72`.
-> The old multi-service doc (a `collaboration` container service, `/collab`
+> This doc describes the deployment as it stands at `main` `95acca4`
+> (the 9+ pass) plus the uncommitted Tauri desktop migration. The old multi-service doc (a `collaboration` container service, `/collab`
 > routes, `wss://<host>/collab`, `/collab/health`) described a service that
 > was **removed on 2026-10-30**. Every collaboration section in the old
 > version was obsolete and has been deleted, not updated. Do not re-add a
@@ -73,8 +73,12 @@ deployment that included `middleware.ts` failed. Do not reintroduce it.
 5. `POST /api/workspace/test` returns **503** with a Docker message —
    **this is the expected result on Vercel**, not a failure. There is no
    Docker daemon on serverless functions.
-6. There is **no** `/collab/health` and **no** `/ready` or `/health`
-   endpoint to probe. Do not expect them; verify with steps 1–4 instead.
+6. `GET /api/health` returns `{ status: "ok" | "degraded", checks: { database, github, docker }, checkedAt }`.
+   On Vercel, `status` is normally `"degraded"` with `docker:
+   "unavailable"` — that is expected, not a failure. There is **no**
+   `/collab/health` and **no** `/ready` endpoint to probe (those
+   belonged to the removed collaboration server); verify with steps
+   1–5 plus this health check instead.
 
 ## What Vercel does NOT do (platform limits, not bugs)
 
@@ -89,5 +93,18 @@ deployment that included `middleware.ts` failed. Do not reintroduce it.
 3. **Database connections are per-invocation.** Each serverless instance
    holds its own small pool (max 10). That is why the Transaction pooler
    (port 6543) is required rather than a direct connection.
-4. **No health endpoint.** Nothing to wire into Vercel's checks; the
-   homepage is the liveness signal.
+4. **Health is `GET /api/health`, not Vercel's checks.** The endpoint
+   needs no auth and returns `{ status, checks: { database, github,
+   docker }, checkedAt }` with fast per-check timeouts. On Vercel the
+   docker check is `unavailable` by design, so expect `status:
+   "degraded"` there — wire alerts to the database/github checks, not
+   to overall `ok`.
+
+## Desktop app (separate from Vercel)
+
+The Windows desktop app is not deployed by Vercel: it is a Tauri shell
+in `apps/desktop` that loads the web app at `AGENTX_WEB_URL` (default
+`http://localhost:3000`). It is built on Windows with the Rust toolchain
+(`npm run package --workspace @agentx/desktop`); see README
+"Desktop (Windows)". The desktop shell needs WebView2 on the user's
+machine — unlike the old Electron shell, it does not bundle Chromium.

@@ -105,17 +105,34 @@ is a change from the earlier Phase 2 state:
   and re-checks `testPassed === true` and a non-empty diff before pushing
   or opening the PR.
 
-What the server does **not** do yet: it does not independently verify that
-a sandbox run passed for that branch. `testPassed` is a client-reported
-flag inside the signed payload — the server checks the flag, not a stored
-record. The `test_runs` table (migration `002_test_runs.sql`) and the
-`recordTestRun` / `listTestRuns` helpers in `apps/web/lib/database.ts`
-exist to close exactly this gap, but **no route calls `recordTestRun`
-yet and there is no endpoint to read the records**. Until that wiring
-lands, a "stored test-pass proof" is a design, not a fact — verify a run
-from its sandboxed result (`{ command, passed, stdout, stderr,
-sandboxed: true, image }`) and the approval re-check, not from the
-database.
+On top of that, every sandboxed test run is now **stored server-side**:
+`POST /api/workspace/test` records the run in `test_runs` (run id,
+branch, command, exit code, output hash + excerpt) and returns
+`proof: { ..., stored: true/false }`; proofs are readable via
+`GET /api/workspace/test?runId=<id>` or `?branch=<branch>`, and
+`GET /api/workspace/diff` returns the branch's recent proofs. When a
+caller supplies `testProof: { runId, outputHash? }` to
+`POST /api/agent/approval`, approval is issued only if the stored row
+shows exit code 0 (and the hash matches when given) — and the request
+fails closed 503 when the database cannot be read.
+
+What the server does **not** do yet: the in-app UI does not send
+`testProof`, so a UI approval still rests on the client-reported
+`testPassed` flag inside the signed payload — the server checks the flag,
+not a stored record, unless the caller supplies a proof. The PR route
+likewise re-checks only the token's flag. Until the UI sends the proof,
+treat a stored row (visible via `GET /api/workspace/test`) as the
+independent evidence for a run, and the UI approval as flag-based.
+
+## Autonomous reproduction uses the same sandbox
+
+`POST /api/agent/repro` — and the plan step, which runs it first —
+reuses `runSandboxedTest` with one allowlisted command (default
+`npm test`; issue text never supplies a raw command). A failing command
+is reported `reproduced`, a passing one `not-reproduced`, and Docker
+being unavailable is reported `not-run` with the reason attached. The
+repro result is evidence about that test command only; it is never a
+diagnosis, and it never blocks planning.
 
 ## Prerequisites
 
@@ -137,10 +154,10 @@ database.
    `pip install` before its tests will fail in the sandbox until a
    sandboxed install step is added in a later phase. Dependencies
    already present in the workspace copy are used as-is.
-2. **Approval trusts the client-reported test flag.** See the section
-   above. The server checks `testPassed` and the diff at approval and
-   at PR time, but it cannot yet prove from its own records that the
-   sandbox run passed.
+2. **Approval trusts the client-reported test flag in the UI path.**
+   See the section above. The server stores proofs and verifies them
+   when a caller supplies `testProof`, but the UI does not send it yet,
+   so a UI approval still rests on `testPassed` in the signed payload.
 3. **A container is not a security proof.** `--cap-drop ALL`,
    `no-new-privileges`, no network, and a read-only root filesystem
    substantially raise the bar over host execution, but a kernel or

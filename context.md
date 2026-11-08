@@ -15,10 +15,10 @@ pushing or opening a pull request. AgentX must not merge changes automatically.
 ## Repository layout
 
 - `apps/web`: Next.js 14 web app, React UI, OAuth, GitHub APIs, AI planning,
-  workspace APIs.
-  file persistence.
-- `apps/desktop`: Electron/Windows packaging entry point and installer assets.
+  workspace APIs, file persistence.
+- `apps/desktop`: Tauri (Rust)/Windows packaging entry point and installer assets.
 - `apps/web/db/001_initial.sql`: PostgreSQL schema.
+- `apps/web/db/002_test_runs.sql`: `test_runs` table (stored test-pass proofs).
 - `scripts/setup-database.js`: database initialization.
 - `scripts/validate-environment.js`: safe environment check.
 - `scripts/dev.js`: Windows launcher for the web service.
@@ -34,16 +34,18 @@ npm run validate:env
 npm run dev
 ```
 
-`npm run dev` starts Next.js. The normal endpoints
-are `http://localhost:3000` and `ws://localhost:8787`; readiness is checked at
-`http://localhost:8787/ready`. If port 3000 is occupied, Next.js selects
-another port such as 3001. Stop stale processes by their specific PID.
+`npm run dev` starts Next.js. The normal endpoint is
+`http://localhost:3000`; health is `GET /api/health` (no auth;
+`{ status: "ok" | "degraded", checks: { database, github, docker },
+checkedAt }`). There is no WebSocket service and no `/ready` endpoint —
+both belonged to the removed collaboration server. If port 3000 is
+occupied, Next.js selects another port such as 3001. Stop stale
+processes by their specific PID.
 
 Useful commands:
 
 ```powershell
 npm run dev:web
-npm run server
 npm run db:setup
 npm run typecheck
 npm run build:web
@@ -101,23 +103,36 @@ Collaborative rooms were removed on 2026-10-30. Ignore any older collaboration r
 
 ## Main files
 
-- `apps/web/app/page.tsx`: app shell and workflow UI.
+- `apps/web/app/page.tsx`: landing page (hero, live GitHub stats via
+  `GET /api/github/stats`).
+- `apps/web/app/components/AgentXApp.tsx`: the signed-in app shell and
+  workflow UI (investigate / workspace / review / repositories /
+  settings).
 - `apps/web/lib/agent.ts`: AI provider routing and plan validation.
 - `apps/web/lib/auth.ts`: OAuth sessions.
 - `apps/web/lib/github.ts`: GitHub integration.
 - `apps/web/lib/workspace.ts`: isolated workspace operations. Its test
   runner now delegates to `sandbox.ts`; the old host `exec` test path
-  was removed, not kept as a fallback.
+  was removed, not kept as a fallback. It also stores the server-side
+  test-pass proof (`storeTestProof` → `recordTestRun`) and reads proofs
+  (`getTestProofsForBranch` / `getTestProofByRunId`).
 - `apps/web/lib/sandbox.ts`: Docker sandbox for tests (Phase 2) —
   command-driven image selection, `--network none`, dropped
   capabilities, read-only root, resource limits, disposable staging
   copy at `/work`, fail-closed when Docker is unavailable. See
   `docs/SANDBOX.md` for the threat model and known limits.
-- Vercel: web service only from the repo-root `vercel.json`.
-  discarding closed sockets. See `docs/VERCEL.md` for the full
-  service table and the platform limits that remain.
-- `apps/server/src/server.js`: rooms, membership, persistence, and broadcasts.
+- `apps/web/app/api/agent/repro/route.ts`: autonomous reproduction —
+  one allowlisted test command in the sandbox; `reproduced` /
+  `not-reproduced` / `not-run`. The plan route runs it first and
+  attaches the result to the plan.
+- `apps/web/app/api/health/route.ts`: `GET /api/health`, no auth —
+  database / GitHub / Docker checks, `ok` or `degraded`.
+- Vercel: web service only from the repo-root `vercel.json`. See
+  `docs/VERCEL.md` for the full service table and the platform limits
+  that remain.
 - `apps/web/db/001_initial.sql`: database schema.
+- `apps/web/db/002_test_runs.sql`: `test_runs` table for stored
+  test-pass proofs.
 - `scripts/dev.js`: combined Windows development launcher.
 - `package-lock.json`: root npm workspace lockfile.
 
@@ -135,4 +150,4 @@ Collaborative rooms were removed on 2026-10-30. Ignore any older collaboration r
 
 1. Run the smallest relevant typecheck or syntax check.
 2. Run `npm run validate:env` for environment changes.
-4. Verify the relevant browser interaction for UI changes.
+3. Verify the relevant browser interaction for UI changes.

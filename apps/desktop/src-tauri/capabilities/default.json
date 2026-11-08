@@ -1,0 +1,13 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "description": "Default capabilities for the AgentX desktop shell. The web app never calls Tauri APIs from JavaScript; these permissions exist so the Rust side can show native error dialogs and open external links in the system browser.",
+  "identifier": "default",
+  "permissions": [
+    "core:default",
+    "opener:default",
+    "dialog:default"
+  ],
+  "windows": [
+    "main"
+  ]
+}

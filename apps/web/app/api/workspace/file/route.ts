@@ -7,7 +7,7 @@ import { safeWorkspacePath } from "../../../../lib/workspace";
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  if (!readSession(cookies().get(cookieNames().sessionCookie)?.value)) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  if (!readSession((await cookies()).get(cookieNames().sessionCookie)?.value)) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   const url = new URL(request.url);
   const workspace = url.searchParams.get("workspace");
   const filePath = url.searchParams.get("path");
@@ -20,7 +20,7 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  if (!readSession(cookies().get(cookieNames().sessionCookie)?.value)) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  if (!readSession((await cookies()).get(cookieNames().sessionCookie)?.value)) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   try {
     assertSameOrigin(request);
   } catch {

@@ -34,6 +34,8 @@ import { Pool } from "pg";
  * A direct (non-pooler) URL (port 5432 / db.<ref>.supabase.co) still works
  * but logs a one-time warning: serverless functions open a fresh connection
  * per invocation and can exhaust Supabase's direct-connection limit.
+ * Local loopback URLs (localhost / 127.0.0.1 / ::1) are exempt from the
+ * warning — they are dev/test databases, not Supabase.
  */
 
 export class DatabaseUnavailableError extends Error {
@@ -63,6 +65,20 @@ export function isPoolerConnectionString(connectionString: string): boolean {
   }
 }
 
+/**
+ * True when the connection string points at a local Postgres (loopback
+ * host). Local dev/test databases are not Supabase, so the pooler warning
+ * below must not fire for them.
+ */
+export function isLocalConnectionString(connectionString: string): boolean {
+  try {
+    const hostname = new URL(connectionString).hostname;
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
 let pool: Pool | undefined;
 let poolerWarningLogged = false;
 
@@ -72,7 +88,11 @@ export function database(): Pool {
   if (!connectionString || connectionString.includes("******")) {
     throw new DatabaseUnavailableError();
   }
-  if (!isPoolerConnectionString(connectionString) && !poolerWarningLogged) {
+  if (
+    !isPoolerConnectionString(connectionString) &&
+    !isLocalConnectionString(connectionString) &&
+    !poolerWarningLogged
+  ) {
     poolerWarningLogged = true;
     console.warn(
       "[database] DATABASE_URL does not look like a Supabase Transaction pooler URL " +

@@ -6,7 +6,7 @@ import { createWorkspace } from "../../../../lib/workspace";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const user = readSession(cookies().get(cookieNames().sessionCookie)?.value);
+  const user = readSession((await cookies()).get(cookieNames().sessionCookie)?.value);
   if (!user) return NextResponse.json({ error: "Sign in before creating a workspace." }, { status: 401 });
   try {
     assertSameOrigin(request);

@@ -24,7 +24,7 @@ export const runtime = "nodejs";
  *   NOT "no tests passed".
  */
 export async function GET(request: Request) {
-  if (!readSession(cookies().get(cookieNames().sessionCookie)?.value)) {
+  if (!readSession((await cookies()).get(cookieNames().sessionCookie)?.value)) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
   const params = new URL(request.url).searchParams;

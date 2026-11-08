@@ -52,7 +52,7 @@ let lastGood: { repo: RepoData; commits: CommitData[]; fetchedAt: string } | nul
 
 async function getLiveData(): Promise<LiveData> {
   try {
-    const h = headers();
+    const h = await headers();
     const proto = h.get("x-forwarded-proto") ?? "http";
     const host = h.get("host") ?? "localhost:3000";
     const res = await fetch(`${proto}://${host}/api/github/stats`, {
@@ -90,7 +90,7 @@ export default async function LandingPage() {
   // NOT be inside the try/catch — that would swallow the redirect.
   let sessionUser = null;
   try {
-    sessionUser = readSession(cookies().get(cookieNames().sessionCookie)?.value);
+    sessionUser = readSession((await cookies()).get(cookieNames().sessionCookie)?.value);
   } catch {
     sessionUser = null;
   }
@@ -135,9 +135,9 @@ export default async function LandingPage() {
             <span className="hero-badge">PS-05 · Bug-fix agent for code repositories</span>
             <h1>Fix bugs, not triage them.</h1>
             <p className="hero-sub">
-              AgentX reads a GitHub issue, reproduces it in a sandbox, finds the cause,
-              writes a fix and tests, and opens a pull request with an explanation —
-              after you review it.
+              AgentX reads a GitHub issue, drafts a plan, and proposes a fix — running
+              tests in a Docker sandbox where one is available — then opens a pull
+              request only after you review and approve it.
             </p>
             <div className="hero-actions">
               <a className="button primary" href="/api/auth/github"><Icon name="github" />Sign in with GitHub</a>

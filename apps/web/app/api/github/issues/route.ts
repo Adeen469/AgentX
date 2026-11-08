@@ -6,7 +6,7 @@ import { githubRequest, type GithubIssue } from "../../../../lib/github";
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  const user = readSession(cookies().get(cookieNames().sessionCookie)?.value);
+  const user = readSession((await cookies()).get(cookieNames().sessionCookie)?.value);
   const { searchParams } = new URL(request.url);
   const repository = searchParams.get("repository");
   if (!repository || !/^[^/]+\/[^/]+$/.test(repository)) return NextResponse.json({ error: "Use an owner/name repository." }, { status: 400 });

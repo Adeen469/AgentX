@@ -10,7 +10,7 @@ const exec = promisify(execFile);
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const user = readSession(cookies().get(cookieNames().sessionCookie)?.value);
+  const user = readSession((await cookies()).get(cookieNames().sessionCookie)?.value);
   if (!user?.githubAccessToken) return NextResponse.json({ error: "GitHub authorization required." }, { status: 401 });
   const input = await request.json() as { approvalToken?: string };
   if (!input.approvalToken) return NextResponse.json({ error: "Human approval is required." }, { status: 400 });

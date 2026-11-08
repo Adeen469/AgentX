@@ -24,7 +24,7 @@ async function listFiles(workspace: string, relative = "", depth = 0): Promise<s
 }
 
 export async function GET(request: Request) {
-  if (!readSession(cookies().get(cookieNames().sessionCookie)?.value)) {
+  if (!readSession((await cookies()).get(cookieNames().sessionCookie)?.value)) {
     return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   }
   const workspace = new URL(request.url).searchParams.get("workspace");

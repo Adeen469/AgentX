@@ -14,3 +14,5 @@ all api keys.md
 *.db-wal
 workspaces/
 data/
+target/
+apps/desktop/src-tauri/gen/

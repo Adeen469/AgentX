@@ -10,8 +10,8 @@ import {
 
 export const runtime = "nodejs";
 
-export function GET() {
-  const raw = cookies().get(cookieNames().sessionCookie)?.value;
+export async function GET() {
+  const raw = (await cookies()).get(cookieNames().sessionCookie)?.value;
   const session = readSessionInfo(raw);
   const response = NextResponse.json({ user: session?.user ?? null });
   // Sliding rotation: a session older than the rotation window gets a

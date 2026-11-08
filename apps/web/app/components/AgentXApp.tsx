@@ -7,7 +7,7 @@ type AuthUser = { id: string; name: string; email: string; picture?: string; pro
 type Repository = { id: number; fullName: string; private: boolean; defaultBranch: string; url: string };
 type Issue = { number: number; title: string; body: string | null; html_url: string; state: string };
 type Plan = { summary: string; steps: string[]; likelyFiles: string[]; validationCommands: string[]; irreversibleActions: string[] };
-type TestResult = { command: string; passed: boolean; stdout: string; stderr: string; sandboxed?: boolean; image?: string };
+type TestResult = { command: string; passed: boolean; stdout: string; stderr: string; sandboxed?: boolean; image?: string; proof?: { runId: string; branch: string; command: string; exitCode: number | null; passed: boolean; outputHash: string; outputExcerpt: string; stored: boolean; storedError?: string } };
 
 const PAGES = ["investigate", "workspace", "review", "repositories", "settings"] as const;
 type Page = (typeof PAGES)[number];
@@ -303,9 +303,12 @@ export default function AgentXApp() {
     if (!workspace) return;
     setError(""); setSandboxNotice(""); setBusy("test");
     try {
+      // Send the agent branch so the server-side test-pass proof is stored
+      // under the branch (not "unknown") and can be verified at approval.
+      const branch = selectedIssue ? `agentx/issue-${selectedIssue.number}` : "unknown";
       const body = await readJson<TestResult>(await fetch("/api/workspace/test", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ workspace, command: testCommand })
+        body: JSON.stringify({ workspace, command: testCommand, branch })
       }));
       setTestResult(body); await loadDiff();
     } catch (reason) {
@@ -325,7 +328,7 @@ export default function AgentXApp() {
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({
           action: "open_pull_request", confirmation: true,
-          payload: { workspace, repository, branch: `agentx/issue-${selectedIssue.number}`, base: "main", title: `Fix #${selectedIssue.number}: ${selectedIssue.title}`, body: `Fixes #${selectedIssue.number}\n\n${plan?.summary || "Fix prepared in AgentX."}\n\nTests: ${testCommand} passed.`, testPassed: testResult.passed, diff, testCommand }
+          payload: { workspace, repository, branch: `agentx/issue-${selectedIssue.number}`, base: "main", title: `Fix #${selectedIssue.number}: ${selectedIssue.title}`, body: `Fixes #${selectedIssue.number}\n\n${plan?.summary || "Fix prepared in AgentX."}\n\nTests: ${testCommand} passed.`, testPassed: testResult.passed, diff, testCommand, ...(testResult.proof?.stored ? { testProof: { runId: testResult.proof.runId, outputHash: testResult.proof.outputHash } } : {}) }
         })
       }));
       setApprovalToken(body.approvalToken);
@@ -476,11 +479,11 @@ export default function AgentXApp() {
                 {!user && <div className="flash">Sign in with GitHub to access repositories, issues, and the isolated workspace.</div>}
                 <section className="card workflow-card">
                   <div className="stepper">
-                    <span className="step active">1 <b>Issue</b></span>
-                    <span className={plan ? "step active" : "step"}>2 <b>Plan</b></span>
-                    <span className={workspace ? "step active" : "step"}>3 <b>Workspace</b></span>
-                    <span className={diff ? "step active" : "step"}>4 <b>Review</b></span>
-                    <span className={pullRequestUrl ? "step active" : "step"}>5 <b>Pull request</b></span>
+                    <span className="step active" aria-current={plan ? undefined : "step"}>1 <b>Issue</b></span>
+                    <span className={plan ? "step active" : "step"} aria-current={plan && !workspace ? "step" : undefined}>2 <b>Plan</b></span>
+                    <span className={workspace ? "step active" : "step"} aria-current={workspace && !diff ? "step" : undefined}>3 <b>Workspace</b></span>
+                    <span className={diff ? "step active" : "step"} aria-current={diff && !pullRequestUrl ? "step" : undefined}>4 <b>Review</b></span>
+                    <span className={pullRequestUrl ? "step active" : "step"} aria-current={pullRequestUrl ? "step" : undefined}>5 <b>Pull request</b></span>
                   </div>
                   <div className="card-body">
                     <div className="form-grid">
@@ -550,6 +553,9 @@ export default function AgentXApp() {
                         {!testResult && busy !== "test" && <p className="subtle" style={{ marginTop: 12 }}>No test run yet — choose a command and run it in the sandbox.</p>}
                         {testResult && (<>
                           {testResult.sandboxed && <p className="subtle mono">Docker sandbox · {testResult.image || "unknown image"} · network off · host files not mounted</p>}
+                          {testResult.proof?.stored
+                            ? <p className="subtle mono">Server proof stored · run {testResult.proof.runId.slice(0, 8)}… · branch {testResult.proof.branch}</p>
+                            : <p className="subtle mono">No server proof stored{testResult.proof?.storedError ? ` (${testResult.proof.storedError})` : " (database unavailable)"} — approval will use the client test claim.</p>}
                           <pre className={testResult.passed ? "test-output passed" : "test-output failed"}>{testResult.stdout || testResult.stderr || "No test output."}</pre>
                         </>)}
                       </div>

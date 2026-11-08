@@ -35,7 +35,7 @@ export const runtime = "nodejs";
  *   stored when it was not.
  */
 export async function POST(request: Request) {
-  if (!readSession(cookies().get(cookieNames().sessionCookie)?.value)) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  if (!readSession((await cookies()).get(cookieNames().sessionCookie)?.value)) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   try {
     assertSameOrigin(request);
   } catch {
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
  * proofs exist.
  */
 export async function GET(request: Request) {
-  if (!readSession(cookies().get(cookieNames().sessionCookie)?.value)) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  if (!readSession((await cookies()).get(cookieNames().sessionCookie)?.value)) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   const params = new URL(request.url).searchParams;
   const runId = params.get("runId")?.trim();
   const branch = params.get("branch")?.trim();

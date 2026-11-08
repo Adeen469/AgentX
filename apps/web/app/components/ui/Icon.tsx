@@ -1,3 +1,5 @@
+import type { ReactElement } from "react";
+
 type IconName =
   | "activity"
   | "check"
@@ -15,7 +17,7 @@ type IconName =
   | "settings"
   | "users";
 
-const paths: Record<IconName, JSX.Element> = {
+const paths: Record<IconName, ReactElement> = {
   activity: <><path d="M3 12h4l2-7 4 14 2-7h6" /></>,
   check: <><path d="m5 12 4 4L19 6" /></>,
   "chevron-right": <><path d="m9 18 6-6-6-6" /></>,

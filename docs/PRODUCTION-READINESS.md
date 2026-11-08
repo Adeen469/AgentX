@@ -1,8 +1,7 @@
 # Production readiness and remaining blockers
 
-> Scope: `main` `a910f72` plus the uncommitted changes of this 9+ pass.
-> Anything marked "working tree" below is in the working tree but not yet
-> committed — re-check it after the pass lands. Collaboration is gone
+> Scope: `main` `95acca4` (the 9+ pass) plus the uncommitted Tauri
+> desktop migration in this working tree. Collaboration is gone
 > (removed 2026-10-30): there is no collaboration service, no `/collab`
 > route, no WebSocket server, and no multi-instance / Redis concern any
 > more. Do not re-add any of it on the basis of an old doc.
@@ -29,11 +28,13 @@
   `DatabaseUnavailableError` only on first use without a real
   `DATABASE_URL`. Pool: max 10, 5 s connect timeout, 30 s idle timeout,
   `allowExitOnIdle` for serverless.
-- **No health / readiness endpoint.** There is no `GET /health` or
-  `GET /ready` route anywhere in the app. Earlier docs that said "confirm
-  `GET /ready` returns 200" were wrong — that endpoint belonged to the
-  removed collaboration server. Verify a deployment by loading the
-  homepage, signing in with GitHub, and loading a repository list.
+- **Health endpoint exists.** `GET /api/health` (no auth) returns
+  `{ status: "ok" | "degraded", checks: { database, github, docker },
+  checkedAt }`, each check with a fast timeout so the endpoint never
+  hangs. On Vercel the docker check is expected to be `unavailable`.
+  (Earlier docs that said "confirm `GET /ready` returns 200" were
+  wrong — that endpoint belonged to the removed collaboration server;
+  the live signal is `GET /api/health` plus the homepage and sign-in.)
 
 ## Required before a real release
 
@@ -83,20 +84,24 @@
   always. There is no WebSocket service any more, so there is no WSS
   configuration to do — any doc mentioning WebSocket TLS is obsolete.
 
-### 4. Electron release signing (desktop only)
+### 4. Tauri release signing (desktop only)
 
-- No code-signing certificate is configured (`CSC_LINK` /
-  `CSC_KEY_PASSWORD` are not set anywhere). Without signing, Windows
-  SmartScreen may warn users on install. Obtain an Authenticode
-  certificate and configure it for electron-builder before distributing
-  the installer outside the team.
-- Installer build: `npm install` (without `--ignore-scripts`, so
-  Electron downloads its runtime), then `npm run build:web`, then
+- No code-signing certificate is configured (`certificateThumbprint` /
+  `signCommand` in `apps/desktop/src-tauri/tauri.conf.json` are not
+  set anywhere). Without signing, Windows SmartScreen may warn users on
+  install. Obtain an Authenticode certificate and configure Tauri's
+  Windows signing (see the Tauri signing docs) before distributing the
+  installer outside the team.
+- Installer build (on Windows, with the Rust toolchain installed):
+  `npm install`, then `npm run build:web`, then
   `npm run package --workspace @agentx/desktop` (or
   `npm run release:windows` for both steps). The packaged app bundles
   the web standalone output and loads it at `AGENTX_WEB_URL` (default
   `http://localhost:3000`) — the desktop shell is a viewer, not a
-  second server.
+  second server. The NSIS installer needs WebView2 on the target
+  machine; it downloads the bootstrapper automatically when missing
+  (see README "Desktop (Windows)"), unlike the old Electron shell,
+  which bundled Chromium and needed no runtime.
 
 ## Operational expectations — verified vs not
 
@@ -106,46 +111,47 @@
 | Rate limits / request limits | **Not implemented.** No rate limiting exists on any API route. Do not claim otherwise. |
 | Load testing | **Not done.** No load test has been run against the Vercel deployment or a self-hosted instance. |
 | Bounded payloads / timeouts | Partial: AI provider calls time out at 20 s; `git diff` capped at 2 MB / 30 s; PR push at 120 s; sandbox runs time out (default 10 min). |
-| Persistence | PostgreSQL via `DATABASE_URL`; `agent_actions` / `test_runs` helpers exist. **But:** no route currently calls `recordAgentAction` or `recordTestRun`, and `approval_requests` is never written either — the approval flow uses signed tokens, not the table. The tables exist; the audit trail does not yet. |
-| Test-pass proof | Schema + helpers exist (`test_runs`, `recordTestRun` / `listTestRuns`); **not wired to any route**, and there is no endpoint to read proofs. See README "Known limits". |
+| Persistence | PostgreSQL via `DATABASE_URL`; `test_runs` rows are written on every sandboxed test run (`storeTestProof` → `recordTestRun`) and readable via `GET /api/workspace/test` and `GET /api/workspace/diff`. **But:** no route calls `recordAgentAction`, and `approval_requests` is never written either — the approval flow uses signed tokens, not the table. The action audit trail does not exist yet. |
+| Test-pass proof | Storage + read path + optional approval verification are wired: `POST /api/workspace/test` stores the proof, `GET /api/workspace/test?runId=` / `?branch=` reads it, and `POST /api/agent/approval` verifies a stored proof when the caller supplies `testProof` (exit code 0 + optional hash match, 503 fail-closed). **Remaining gap:** the in-app UI does not send `testProof`, so UI approvals still rest on the client-reported `testPassed` flag, and the PR route re-checks only the signed token's flag. See README "Known limits". |
 | Error responses | Explicit: 401 unauthenticated, 400 bad input / failed approval check, 503 Docker or database unavailable, 502 workspace creation failure. |
 | Availability | Single web service. No multi-instance design is needed any more (no shared room state), but workspaces on Vercel are ephemeral per invocation — a clone made in one request may not exist in the next. Self-hosted is the only deployment where workspaces persist. |
 | Backups | PostgreSQL backups are the deployer's job (Supabase: point-in-time recovery / daily backups per plan). Nothing in the repo backs anything up. |
 
-## Installer behaviour (verified against `apps/desktop/package.json`)
+## Installer behaviour (verified against `apps/desktop/src-tauri/tauri.conf.json`)
 
-NSIS installer, not one-click: licence agreement (`LICENSE.txt`), custom
-installation directory, progress UI, desktop shortcut, Start-menu
-shortcut, launch-after-install, portable executable target, user-level
-install (`perMachine: false`, `requestedExecutionLevel: asInvoker`),
-`installer.nsh` extras. Explorer context-menu entries claimed by older
-docs are **not** in the current packaging config — the config lists no
-context-menu registration, so do not promise it.
+NSIS installer, user-level install (`installMode: currentUser`):
+licence file (`LICENSE.txt`), English installer, LZMA compression,
+desktop + Start-menu shortcuts and launch-after-install from Tauri's
+default NSIS template, and the Explorer context-menu entries from
+`src-tauri/installer-hooks.nsh` (`NSIS_HOOK_POSTINSTALL` /
+`NSIS_HOOK_POSTUNINSTALL`). There is no portable installer target in
+Tauri — the portable equivalent is the bare executable from `tauri
+build --no-bundle` (`npm run package:portable --workspace
+@agentx/desktop`). WebView2 is downloaded by the installer when missing
+(`webviewInstallMode: downloadBootstrapper`, silent).
 
 ## Remaining blockers (in order)
 
-1. **Wire the test-pass proof.** Call `recordTestRun` from the sandboxed
-   test path and add a read path (route or query) for `listTestRuns`, so
-   the approval gate can verify a stored pass instead of trusting the
-   client-reported `testPassed` flag. Until then the gate checks the flag
-   and the diff, not an independent record.
-2. **Add a health endpoint — or stop expecting one.** Decide: either add
-   `GET /api/health` (session-independent, checks DB reachability
-   without throwing) or keep verifying via homepage + sign-in. Today
-   there is nothing to probe.
-3. **No automated tests in this repo.** Add at least unit tests for
+1. **Wire the test-pass proof into the UI.** The server side is done
+   (storage, read path, optional approval verification). The in-app UI
+   still does not send `testProof` with its approval request and does
+   not surface the repro result, so UI approvals rest on the
+   client-reported `testPassed` flag. Send the stored proof's
+   `runId`/`outputHash` from the UI, and have the PR route verify a
+   stored row instead of (or in addition to) the token's flag.
+2. **No automated tests in this repo.** Add at least unit tests for
    `lib/approval.ts` (token expiry / wrong-user / wrong-action),
    `lib/sandbox.ts` (allowlist, image selection, config validation), and
    `lib/auth.ts` (`requireAuthSecret` rejection cases). Nothing here is
    covered by CI today.
-4. **Rate limiting.** At least on `/api/agent/plan` (AI cost) and
+3. **Rate limiting.** At least on `/api/agent/plan` (AI cost) and
    `/api/workspace/test` (Docker cost).
-5. **Load test** the Vercel deployment (sign-in → repos → plan) before
+4. **Load test** the Vercel deployment (sign-in → repos → plan) before
    calling it production-ready.
-6. **Code signing** for the Windows installer (see §4 above).
-7. **PR base defaults to `main`.** Send the repo's actual default branch
+5. **Code signing** for the Windows installer (see §4 above).
+6. **PR base defaults to `main`.** Send the repo's actual default branch
    as `base` instead of hard-coding `main` in the UI.
-8. **Fix `npm run validate:env`.** Its optional-key list uses wrong
+7. **Fix `npm run validate:env`.** Its optional-key list uses wrong
    names (`GITHUB_Client_ID` instead of `GITHUB_CLIENT_ID`, `GROQ2_API_KEY`
    is listed but `GEMINI2_API_KEY` etc. are inconsistently named), so its
    "optional integrations configured" count is unreliable. Required

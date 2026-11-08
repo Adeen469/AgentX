@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  if (!code || !state || state !== cookies().get(cookieNames().stateCookie)?.value) {
+  if (!code || !state || state !== (await cookies()).get(cookieNames().stateCookie)?.value) {
     return NextResponse.json({ error: "Invalid OAuth callback state." }, { status: 400 });
   }
   try {

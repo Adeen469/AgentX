@@ -20,7 +20,7 @@ export const runtime = "nodejs";
  *   caller must check `status` and must never treat "not-run" as a repro.
  */
 export async function POST(request: Request) {
-  const user = readSession(cookies().get(cookieNames().sessionCookie)?.value);
+  const user = readSession((await cookies()).get(cookieNames().sessionCookie)?.value);
   if (!user) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
   try {
     assertSameOrigin(request);

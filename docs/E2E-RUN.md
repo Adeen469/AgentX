@@ -161,34 +161,70 @@ docker pull node:20-bookworm-slim
 
 ## 5. Verify the stored test-pass proof
 
-**Honest status: the full stored proof is not wired end to end yet.**
-Verify what exists, in this order:
+**Status: the server-side proof chain IS wired end to end in code
+(verified 2026-11-08 in `apps/web/lib/workspace.ts`,
+`apps/web/app/api/workspace/test/route.ts`,
+`apps/web/app/api/agent/approval/route.ts`).** The chain is:
+
+1. `POST /api/workspace/test` runs the command in the Docker sandbox,
+   then calls `storeTestProof()` → `recordTestRun()` → one row in
+   `test_runs` (`run_id`, `branch`, `command`, `exit_code`, `output_hash`,
+   `output_excerpt`). The response carries `proof: { runId, …, stored }`;
+   `stored: false` + `storedError` when the database is unavailable —
+   the test result is still returned, but no proof exists.
+2. `GET /api/workspace/test?runId=<id>` / `?branch=<branch>` reads the
+   stored rows back (503 when the database is not configured — never an
+   empty list pretending no proofs exist).
+3. `POST /api/agent/approval` with `payload.testProof: { runId,
+   outputHash? }` issues the token ONLY if the stored row for that
+   `runId` has `exit_code = 0` (and the hash matches when supplied).
+   With `testProof` present but the database unreachable it fails
+   closed with 503 — an unverifiable proof is never treated as verified.
+4. `GET /api/workspace/diff` returns the branch's latest stored proofs
+   (`testProofs`, `testProofsStored`) for the Review UI.
+
+**Known gap (UI wiring, not server wiring): the Review UI does not
+yet send the proof.** `AgentXApp.tsx` `runTests()` posts to
+`/api/workspace/test` **without `branch`** (so the proof is stored
+under branch `"unknown"`) and discards the returned `proof` object;
+`requestApproval()` then sends only the client claim
+`testPassed: testResult.passed` — no `testProof: { runId, outputHash }`.
+So today an approval still goes through the legacy client-claim path
+even though the server can verify a stored proof. Until the UI passes
+`branch` and `testProof`, the stored-proof verification is available
+to API callers but is not what the button uses. Verify what exists, in
+this order:
 
 1. **Sandboxed result (exists today).** The test step returned
    `sandboxed: true` with the image name, command, `passed`, and
    stdout/stderr. That result is the proof the approval was based on.
-2. **Approval re-check (exists today).** The server refused approval
-   without `testPassed: true` + a non-empty diff, and the PR route
-   re-checked both before pushing. You can confirm the negative case:
-   with a failing test, the approve button is disabled and a direct
-   `POST /api/agent/approval` with `testPassed: false` is rejected
-   with 400. (Do this with `curl` and your session cookie only if you
-   are comfortable — it is optional.)
-3. **`test_runs` table (schema + helpers exist; no route writes yet).**
-   Check whether a row was recorded:
+2. **Stored row (exists today, server-side).** After step 4.6, check
+   that a row was recorded:
 
    ```sql
    SELECT run_id, branch, command, exit_code, created_at
    FROM test_runs ORDER BY created_at DESC LIMIT 5;
    ```
 
-   **Today, expect zero rows.** No API route calls `recordTestRun` yet,
-   so an empty table does **not** mean the test failed — it means the
-   recording step is not wired. Do not claim a stored proof exists for
-   this run. Once the wiring lands, re-run this query after step 4.6:
-   a row with `exit_code = 0` for branch `agentx/issue-<number>` is the
-   stored proof, and `output_hash` lets a verifier re-check the output
-   excerpt.
+   Expect one row per test run, `exit_code = 0` for the passing run.
+   **Caveat while the UI gap above is open:** the row's `branch` will
+   be `"unknown"` (the UI does not send it) — match it by `run_id`
+   from the test response's `proof.runId`, not by branch. Once the UI
+   sends `branch`, a row with `exit_code = 0` for branch
+   `agentx/issue-<number>` is the stored proof, and `output_hash` lets
+   a verifier re-check the output excerpt.
+3. **Approval re-check (exists today, server-side).** The server
+   refused approval without `testPassed: true` + a non-empty diff, and
+   the PR route re-checked both before pushing. You can confirm the
+   negative case: with a failing test, the approve button is disabled
+   and a direct `POST /api/agent/approval` with `testPassed: false` is
+   rejected with 400. (Do this with `curl` and your session cookie
+   only if you are comfortable — it is optional.) To exercise the
+   stored-proof path directly, `POST /api/agent/approval` with
+   `payload.testProof: { runId: "<runId from step 2>", outputHash:
+   "<output_hash from step 2>" }` and a passing stored row: expect a
+   200 with an approval token. With a bogus `runId`, expect 400 ("No
+   stored test proof"); with no database, expect 503.
 
 ## 6. Clean up
 
@@ -206,6 +242,8 @@ Verify what exists, in this order:
 | Sign-in redirects to GitHub with an error | OAuth callback URL mismatch — must be exactly `http://localhost:3000/api/auth/callback/github`. |
 | "No AI provider is configured" | No AI key set, or `.env.local` edited after the server started — restart `npm run dev`. |
 | Test returns 503 / Docker unavailable | Docker not running, or not on `PATH` in this shell. `docker info` must exit 0 first. |
+| `/api/health` says `docker: "ok"` but tests fail with `NanoCPUs` / `setns` | Health only probes `docker info`. The daemon can be up while no container can start (kernel/cgroup limits in this VM). Run on a Docker-capable machine. |
+| Approval succeeds but no `test_runs` row, or proof is under branch `"unknown"` | The Review UI sends only the client `testPassed` claim and no `branch` — see §5. The server stores the proof and can verify it, but the button does not use it yet. |
 | Test fails with "cannot find module" | The repo needs `npm install` first — the sandbox has no install step. Use a zero-dependency test repo for this run. |
 | Workspace creation fails with 502 | Clone failed — check the repo is reachable and, for a private repo, that the GitHub token has `repo` scope (re-sign-in if needed). |
 | Approval button disabled | No passing test result or no diff yet — run the test to green first, and make sure a file change is saved. |
@@ -235,3 +273,77 @@ kernel does not support CPU CFS scheduler`). The sandbox correctly fails
 closed (no host fallback). The repro/test steps therefore returned honest
 `not-run`/infra errors. Run those two steps on your own machine per the
 guide above, where Docker can start containers.
+
+## Verified in this VM — 2026-11-08 ~19:41 IST (second check, Tauri tree)
+
+HEAD `95acca4` confirmed. Tauri migration is uncommitted in the same
+tree (`apps/desktop/src-tauri/`) but does not touch the web E2E path:
+`vercel.json` is still web-only (`services.web.root: apps/web`,
+Next.js, no desktop/Electron references).
+
+Docker re-verified, same result as the first check — containers still
+cannot start in this VM (exact outputs):
+
+```text
+$ docker ps
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+(exit 0 — daemon is up, no containers)
+
+$ docker run --rm hello-world
+WARNING: IPv4 forwarding is disabled. Networking will not work.
+docker: Error response from daemon: failed to create task for container:
+failed to create shim task: OCI runtime create failed: runc create failed:
+unable to start container process: error spawning mount remapping thread:
+mount source thread: join container mntns: setns: operation not permitted
+(exit 125)
+```
+
+The real sandbox code path was exercised directly (compiled
+`apps/web/lib/sandbox.ts` + `lib/agent.ts` with `tsc`, real workspace
+under `WORKSPACE_ROOT`, no mocks, no AI key, no GitHub token):
+
+- `runSandboxedTest(ws, "npm test")` threw:
+  `Docker sandbox failed before the test could run: docker: Error
+  response from daemon: NanoCPUs can not be set, as your kernel does
+  not support CPU CFS scheduler or the cgroup is not mounted` — the
+  `docker run` failure surfaces with its real message (exit 125 is
+  classified as an infra error, not a test failure), no host fallback,
+  no fake pass. Note the error varies by invocation (`setns` vs
+  `NanoCPUs`); both are the same underlying kernel/cgroup limitation.
+- `attemptReproduction()` with a real workspace + broken Docker
+  returned `status: "not-run"` with that same Docker error as the
+  reason, `exitCode: null`, `sandboxed: false` — never a claimed repro.
+- `attemptReproduction()` with no workspace returned `status:
+  "not-run"` ("Repro not run — no workspace exists yet…").
+- `pickReproCommand()`: a non-allowlisted explicit command falls back
+  to the default `npm test` (never runs an arbitrary command); an
+  allowlisted explicit command is honoured. Minor note: issue text
+  mentioning `npm test:watch` matches `npm test` — harmless, because
+  only the allowlisted command ever runs, but the code comment in
+  `agent.ts` claims that match must not happen.
+- `createAgentPlan()` with no AI key threw `No AI provider is
+  configured. Add keys for Groq, Gemini, OpenRouter, or NVIDIA.` —
+  plan fails closed without a key.
+
+Live dev server (`next dev`, no DATABASE_URL, no AI key, no GitHub
+token), exact responses:
+
+- `GET /api/health` → 200
+  `{"status":"degraded","checks":{"database":"unavailable","github":"ok","docker":"ok"},…}`
+  — **trap:** `docker: "ok"` here means only that `docker info`
+  succeeds; it does NOT mean containers can start in this VM. Do not
+  read it as "sandbox works".
+- `POST /api/agent/plan`, `/api/agent/repro`, `/api/agent/approval`,
+  `/api/workspace/test`, and `GET /api/workspace/test?runId=…` without a
+  session → all `401 {"error":"Authentication required."}`.
+- Authenticated no-key / no-DB behaviours (`POST /api/agent/plan` →
+  503 "No AI provider is configured"; `POST /api/agent/approval` with
+  `testProof` → 503 fail-closed) were verified in the first partial run
+  above and re-confirmed at the library level this run; they were NOT
+  re-run over HTTP this time because there is no GitHub session in this
+  VM.
+
+What still could NOT run here: any step needing a container, an AI key,
+a GitHub token, or a database — i.e. a real repro, a real sandboxed
+test, a stored `test_runs` row, and the stored-proof approval. Those
+need the owner's Docker-capable machine per the guide above.

@@ -47,6 +47,10 @@ export type SandboxRuntime = "node" | "python" | "dotnet" | "rust" | "go";
 export interface SandboxTestResult {
   command: string;
   passed: boolean;
+  /** Raw process exit code when known (0 on pass). null when the run timed
+   *  out before an exit code existed. Callers that store a test-pass proof
+   *  use this value; they must NOT infer a pass from anything else. */
+  exitCode: number | null;
   stdout: string;
   stderr: string;
   /** Always true for results produced by this module. */
@@ -365,6 +369,7 @@ export async function runSandboxedTest(
       return {
         command,
         passed: true,
+        exitCode: 0,
         stdout: result.stdout,
         stderr: result.stderr,
         sandboxed: true,
@@ -387,6 +392,7 @@ export async function runSandboxedTest(
         return {
           command,
           passed: false,
+          exitCode: null,
           stdout,
           stderr: "Test timed out inside the sandbox.",
           sandboxed: true,
@@ -401,6 +407,10 @@ export async function runSandboxedTest(
       return {
         command,
         passed: false,
+        // execFile reports a non-zero exit as error.code; fall back to 1
+        // when the runner gives no numeric code, so a failure is never
+        // recorded as exit 0.
+        exitCode: typeof failed.code === "number" ? failed.code : 1,
         stdout,
         stderr:
           stderr ||

@@ -10,7 +10,7 @@
   color-scheme: dark;
   --bg: #0d1117; --surface: #161b22; --surface-raised: #21262d;
   --line: #30363d; --line-muted: #21262d; --line-strong: #484f58;
-  --text: #e6edf3; --text-muted: #7d8590; --text-faint: #6e7681;
+  --text: #e6edf3; --text-muted: #7d8590; --text-faint: #8b949e;
   --accent: #58a6ff; --accent-hover: #79c0ff; --accent-soft: rgb(56 139 253 / .15); --accent-ring: rgb(56 139 253 / .3);
   --primary: #238636; --primary-hover: #2ea043; --primary-border: rgb(240 246 252 / .1);
   --btn-bg: #21262d; --btn-border: #30363d; --btn-hover-bg: #30363d; --input-bg: #0d1117;
@@ -21,7 +21,7 @@
   color-scheme: light;
   --bg: #ffffff; --surface: #ffffff; --surface-raised: #f6f8fa;
   --line: #d0d7de; --line-muted: #eaeef2; --line-strong: #afb8c1;
-  --text: #1f2328; --text-muted: #656d76; --text-faint: #8c959f;
+  --text: #1f2328; --text-muted: #656d76; --text-faint: #656d76;
   --accent: #0969da; --accent-hover: #0860ca; --accent-soft: rgb(9 105 218 / .1); --accent-ring: rgb(9 105 218 / .3);
   --primary: #2da44e; --primary-hover: #2c974b; --primary-border: rgb(27 31 36 / .15);
   --btn-bg: #f6f8fa; --btn-border: rgb(27 31 36 / .15); --btn-hover-bg: #f3f4f6; --input-bg: #ffffff;
@@ -47,6 +47,13 @@ button.secondary, .button.secondary { color: var(--text); border-color: var(--bt
 button.secondary:hover, .button.secondary:hover { background: var(--btn-hover-bg); }
 input, textarea, select { min-height: 32px; padding: 5px 12px; border: 1px solid var(--line-strong); border-radius: var(--radius); color: var(--text); background: var(--input-bg); font-size: 14px; }
 input:focus, textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); outline: 0; }
+/* The input:focus rule above (same specificity, later in the file) would
+   otherwise cancel the :focus-visible outline for keyboard users; restore
+   it explicitly so keyboard focus is always visible, ring + outline. */
+input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--accent); }
+/* Skip link: visually hidden until keyboard focus lands on it. */
+.skip-link { position: fixed; left: 16px; top: -100px; z-index: 100; padding: 8px 16px; border-radius: var(--radius); color: #fff; background: var(--primary); font-weight: 600; transition: top .15s ease; }
+.skip-link:focus { top: 12px; text-decoration: none; }
 code, pre { font-family: var(--font-code); }
 label { display: block; color: var(--text-muted); font-size: 14px; font-weight: 500; }
 .app { display: flex; flex-direction: column; min-height: 100dvh; padding-top: 60px; }
@@ -175,6 +182,9 @@ label { display: block; color: var(--text-muted); font-size: 14px; font-weight: 
 .filter-tabs button.active { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
 .filter-tabs span { margin-left: 4px; color: var(--text-faint); font-size: 12px; }
 .context-menu { position: fixed; z-index: 20; display: grid; gap: 4px; width: min(18rem, calc(100vw - 2rem)); padding: 8px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--surface-raised); }
+/* Transparent click-catcher behind the context menu: clicking anywhere
+   else (or pressing Escape) closes it. */
+.menu-overlay { position: fixed; inset: 0; z-index: 15; border: 0; padding: 0; background: transparent; cursor: default; }
 .context-menu strong { padding: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 14px var(--font-code); }
 .context-menu button, .context-menu a { min-height: 32px; padding: 0 12px; border: 0; border-radius: 4px; color: var(--text); text-align: left; text-decoration: none; font-size: 14px; }
 .context-menu button:hover, .context-menu a:hover { background: var(--accent-soft); }
@@ -234,6 +244,7 @@ label { display: block; color: var(--text-muted); font-size: 14px; font-weight: 
 .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
 .hero-note { margin-top: 16px; color: var(--text-faint); font-size: 13px; }
 .hero-card .stats-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 16px 0; }
+.stale-note { margin-top: 12px; font-size: 13px; }
 .hero-card .stats-strip strong { display: block; font-size: 20px; }
 .hero-card .stats-strip span { color: var(--text-muted); font-size: 12px; }
 .landing-section { margin-bottom: 64px; }

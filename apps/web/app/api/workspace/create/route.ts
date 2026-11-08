@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { cookieNames, readSession } from "../../../../lib/auth";
+import { assertSameOrigin, cookieNames, readSession } from "../../../../lib/auth";
 import { createWorkspace } from "../../../../lib/workspace";
 
 export const runtime = "nodejs";
@@ -8,6 +8,11 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   const user = readSession(cookies().get(cookieNames().sessionCookie)?.value);
   if (!user) return NextResponse.json({ error: "Sign in before creating a workspace." }, { status: 401 });
+  try {
+    assertSameOrigin(request);
+  } catch {
+    return NextResponse.json({ error: "Cross-origin request rejected." }, { status: 403 });
+  }
   const input = await request.json() as { repository?: string; issueNumber?: number };
   if (!input.repository || !/^[^/]+\/[^/]+$/.test(input.repository) || typeof input.issueNumber !== "number" || !Number.isInteger(input.issueNumber)) {
     return NextResponse.json({ error: "Repository and issue number are required." }, { status: 400 });

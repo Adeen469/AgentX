@@ -5,6 +5,10 @@ on the host. `POST /api/workspace/test` now runs the allowlisted command
 inside a disposable Docker container, and fails closed when Docker is not
 available.
 
+> This sandbox runs **only where a Docker daemon exists** — a self-hosted
+> machine. On Vercel the endpoint returns 503 by design (no Docker daemon
+> on serverless functions), and nothing runs on the host instead.
+
 ## What runs where
 
 | Step | Host | Container |
@@ -88,6 +92,31 @@ silent default.
   with its stdout/stderr, and the container and staging copy are still
   cleaned up.
 
+## Approval binding — what the server checks, and what it does not
+
+The approval gate **is** bound to the test result at the API level, which
+is a change from the earlier Phase 2 state:
+
+- The UI only offers approval when it holds a passing test result and a
+  non-empty diff.
+- `POST /api/agent/approval` refuses a `open_pull_request` approval unless
+  the payload carries `testPassed: true` and a non-empty `diff`.
+- `POST /api/github/pull-request` re-verifies the signed approval token
+  and re-checks `testPassed === true` and a non-empty diff before pushing
+  or opening the PR.
+
+What the server does **not** do yet: it does not independently verify that
+a sandbox run passed for that branch. `testPassed` is a client-reported
+flag inside the signed payload — the server checks the flag, not a stored
+record. The `test_runs` table (migration `002_test_runs.sql`) and the
+`recordTestRun` / `listTestRuns` helpers in `apps/web/lib/database.ts`
+exist to close exactly this gap, but **no route calls `recordTestRun`
+yet and there is no endpoint to read the records**. Until that wiring
+lands, a "stored test-pass proof" is a design, not a fact — verify a run
+from its sandboxed result (`{ command, passed, stdout, stderr,
+sandboxed: true, image }`) and the approval re-check, not from the
+database.
+
 ## Prerequisites
 
 - Docker Engine or Docker Desktop installed and running on the machine
@@ -96,6 +125,10 @@ silent default.
   `docker` CLI.
 - No Docker daemon access is needed by the browser. Only the server
   invokes the `docker` CLI.
+- The first run for a language pulls its image (`docker pull` by the
+  daemon, outside the container). Allow that once per image, or
+  pre-pull with `docker pull node:20-bookworm-slim` (and the other
+  images you need).
 
 ## Known limits (not hidden)
 
@@ -104,12 +137,16 @@ silent default.
    `pip install` before its tests will fail in the sandbox until a
    sandboxed install step is added in a later phase. Dependencies
    already present in the workspace copy are used as-is.
-2. **Approval is not yet bound to the test result.** The UI still gates
-   approval on a passing test, but the server does not yet verify that
-   binding. That is Phase 1 / Phase 5 work, and the sandbox does not
-   claim to fix it.
+2. **Approval trusts the client-reported test flag.** See the section
+   above. The server checks `testPassed` and the diff at approval and
+   at PR time, but it cannot yet prove from its own records that the
+   sandbox run passed.
 3. **A container is not a security proof.** `--cap-drop ALL`,
    `no-new-privileges`, no network, and a read-only root filesystem
    substantially raise the bar over host execution, but a kernel or
    Docker escape is still a different class of risk than a test script
    reading host files — which this sandbox does block.
+4. **Vercel cannot run the sandbox.** No Docker daemon exists on
+   serverless functions, so tests there always answer 503. This is by
+   design; the full run (plan → fix → test → approve → PR) only works
+   self-hosted. See [docs/E2E-RUN.md](./E2E-RUN.md).

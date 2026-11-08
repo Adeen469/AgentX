@@ -1,9 +1,11 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { AuthUser } from "./auth";
+import { requireAuthSecret } from "./auth";
 
 function secret() {
-  if (!process.env.AUTH_SECRET) throw new Error("AUTH_SECRET is not configured.");
-  return process.env.AUTH_SECRET;
+  // Same length/weakness enforcement as session signing (lib/auth.ts):
+  // a weak AUTH_SECRET would let anyone forge approval tokens.
+  return requireAuthSecret();
 }
 
 export function createApproval(user: AuthUser, action: "push_branch" | "open_pull_request", payload: Record<string, unknown>) {

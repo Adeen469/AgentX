@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { cookieNames, readSession } from "../../../../lib/auth";
+import { assertSameOrigin, cookieNames, readSession } from "../../../../lib/auth";
 import { safeWorkspacePath } from "../../../../lib/workspace";
 
 export const runtime = "nodejs";
@@ -21,6 +21,11 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   if (!readSession(cookies().get(cookieNames().sessionCookie)?.value)) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+  try {
+    assertSameOrigin(request);
+  } catch {
+    return NextResponse.json({ error: "Cross-origin request rejected." }, { status: 403 });
+  }
   const input = await request.json() as { workspace?: string; path?: string; content?: string };
   if (!input.workspace || !input.path || typeof input.content !== "string") return NextResponse.json({ error: "Workspace, path, and content are required." }, { status: 400 });
   try {

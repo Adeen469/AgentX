@@ -58,10 +58,13 @@ export default function AgentXApp() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [repositories, setRepositories] = useState<Repository[]>([]);
+  const [reposLoading, setReposLoading] = useState(false);
+  const [reposLoaded, setReposLoaded] = useState(false);
   const [repository, setRepository] = useState("");
   const [issues, setIssues] = useState<Issue[]>([]);
   const [issueNumber, setIssueNumber] = useState("");
   const [issueLoading, setIssueLoading] = useState(false);
+  const [issuesLoaded, setIssuesLoaded] = useState(false);
   const [plan, setPlan] = useState<Plan | null>(null);
   const [workspace, setWorkspace] = useState("");
   const [files, setFiles] = useState<string[]>([]);
@@ -104,15 +107,24 @@ export default function AgentXApp() {
     if (!authLoading && !user) window.location.replace("/");
   }, [authLoading, user]);
 
+  async function loadRepositories() {
+    if (!user || user.provider !== "github") return;
+    setError("");
+    setReposLoading(true);
+    try {
+      const body = await readJson<{ repositories: Repository[] }>(await fetch("/api/github/repositories"));
+      setRepositories(body.repositories);
+      setReposLoaded(true);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Failed to load repositories.");
+    } finally {
+      setReposLoading(false);
+    }
+  }
+
   useEffect(() => {
-    if (!user) return;
-    if (user.provider !== "github") return;
-    setBusy("repositories");
-    fetch("/api/github/repositories")
-      .then((response) => readJson<{ repositories: Repository[] }>(response))
-      .then((body) => setRepositories(body.repositories))
-      .catch((reason: Error) => setError(reason.message))
-      .finally(() => setBusy(""));
+    void loadRepositories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   useEffect(() => { setApprovalPolicy(localStorage.getItem("agentx-approval-policy") || "always_ask"); }, []);
@@ -130,8 +142,14 @@ export default function AgentXApp() {
   }, []);
 
   // GitHub-style: pressing / focuses the header search, unless typing already.
+  // Escape closes the avatar menu and the repository context menu.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setAvatarMenuOpen(false);
+        setContextRepository(null);
+        return;
+      }
       const target = event.target as HTMLElement | null;
       if (event.key !== "/" || !searchInputRef.current) return;
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT")) return;
@@ -214,7 +232,7 @@ export default function AgentXApp() {
       setIssues(body.issues); setIssueNumber("");
       setNotice(`${body.issues.length} open issue${body.issues.length === 1 ? "" : "s"} loaded from GitHub.`);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Issue lookup failed."); }
-    finally { setIssueLoading(false); }
+    finally { setIssueLoading(false); setIssuesLoaded(true); }
   }
 
   const selectedIssue = issues.find((issue) => String(issue.number) === issueNumber);
@@ -367,14 +385,17 @@ export default function AgentXApp() {
           {user && <span className="connection-status"><span className="status-dot" />Connected</span>}
           {user && (
             <div className="gh-avatar-btn">
-              <button className="gh-avatar-btn" onClick={() => setAvatarMenuOpen((open) => !open)} aria-label="Account menu">
+              <button className="gh-avatar-btn" onClick={() => setAvatarMenuOpen((open) => !open)} aria-label="Account menu" aria-haspopup="menu" aria-expanded={avatarMenuOpen}>
                 {user.picture ? <img className="gh-avatar" src={user.picture} alt="" /> : <span className="avatar">{initials}</span>}
               </button>
               {avatarMenuOpen && (
-                <div className="gh-menu">
-                  <a {...navLink("settings")} onClick={(event) => { event.preventDefault(); setAvatarMenuOpen(false); navigate("settings"); }}>Settings</a>
-                  <button onClick={() => void logout()}>Sign out</button>
-                </div>
+                <>
+                  <button className="menu-overlay" onClick={() => setAvatarMenuOpen(false)} aria-label="Close account menu" />
+                  <div className="gh-menu" role="menu">
+                    <a role="menuitem" {...navLink("settings")} onClick={(event) => { event.preventDefault(); setAvatarMenuOpen(false); navigate("settings"); }}>Settings</a>
+                    <button role="menuitem" onClick={() => void logout()}>Sign out</button>
+                  </div>
+                </>
               )}
             </div>
           )}
@@ -386,7 +407,7 @@ export default function AgentXApp() {
           <div className="sidebar-nav">
           <div className="nav-group">Bug-fix workflow</div>
           {navItems.slice(0, 3).map((item) => (
-            <a key={item.page} className={`nav-item ${activePage === item.page ? "is-active" : ""}`} {...navLink(item.page)}><Icon name={item.icon} /><span>{item.label}</span></a>
+            <a key={item.page} className={`nav-item ${activePage === item.page ? "is-active" : ""}`} aria-current={activePage === item.page ? "page" : undefined} {...navLink(item.page)}><Icon name={item.icon} /><span>{item.label}</span></a>
           ))}
           <div className="nav-group">Connections</div>
           {/* Repositories only: Settings is navItems[4] and is rendered
@@ -395,10 +416,10 @@ export default function AgentXApp() {
               removal it silently pulled Settings into Connections too,
               duplicating it. */}
           {navItems.slice(3, 4).map((item) => (
-            <a key={item.page} className={`nav-item ${activePage === item.page ? "is-active" : ""}`} {...navLink(item.page)}><Icon name={item.icon} /><span>{item.label}</span></a>
+            <a key={item.page} className={`nav-item ${activePage === item.page ? "is-active" : ""}`} aria-current={activePage === item.page ? "page" : undefined} {...navLink(item.page)}><Icon name={item.icon} /><span>{item.label}</span></a>
           ))}
           <div className="nav-group">System</div>
-          <a className={`nav-item ${activePage === "settings" ? "is-active" : ""}`} {...navLink("settings")}><Icon name="settings" /><span>Settings</span></a>
+          <a className={`nav-item ${activePage === "settings" ? "is-active" : ""}`} aria-current={activePage === "settings" ? "page" : undefined} {...navLink("settings")}><Icon name="settings" /><span>Settings</span></a>
           <div className="nav-group">Top repositories</div>
           <div className="top-repos">
             {repositories.slice(0, 8).map((item) => (
@@ -407,7 +428,9 @@ export default function AgentXApp() {
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.fullName}</span>
               </button>
             ))}
-            {user && repositories.length === 0 && <p className="faint">No repositories loaded yet.</p>}
+            {user && reposLoading && <p className="faint" role="status">Loading repositories…</p>}
+            {user && !reposLoading && reposLoaded && repositories.length === 0 && <p className="faint">No repositories loaded yet.</p>}
+            {user && !reposLoading && !reposLoaded && error && <p className="faint">Repositories failed to load — retry from the Repositories page.</p>}
             {!user && <p className="faint">Sign in to see your repositories.</p>}
           </div>
           {repositories.length > 8 && <a className="nav-item" {...navLink("repositories")}>Show more</a>}
@@ -418,19 +441,25 @@ export default function AgentXApp() {
               <div className="user-meta">
                 {authLoading ? <strong>Checking session</strong> : user ? <><strong>{user.name}</strong><span>{user.email}</span></> : <strong>Not signed in</strong>}
               </div>
-              {user && <button className="icon-button" onClick={() => void logout()} title="Sign out"><Icon name="logout" /></button>}
+              {user && <button className="icon-button" onClick={() => void logout()} title="Sign out" aria-label="Sign out"><Icon name="logout" /></button>}
             </div>
           </div>
         </aside>
         {sidebarOpen && <button className="sidebar-overlay" onClick={() => setSidebarOpen(false)} aria-label="Close sidebar" />}
 
-        <section className="main">
+        <section className="main" id="main">
           <div className="content">
             {error && <div className="flash flash-error" role="alert">{error}{errorHint && <span className="subtle"> {errorHint}</span>}</div>}
             {sandboxNotice && <div className="flash flash-warn" role="alert">{sandboxNotice}</div>}
-            {notice && <div className="flash flash-success">{notice}</div>}
+            {notice && <div className="flash flash-success" role="status">{notice}</div>}
 
-            {activePage === "investigate" && (
+            {authLoading && (
+              <div className="card card-body empty-state" role="status">
+                <h2>Checking your session…</h2>
+                <p className="subtle">Please wait while AgentX verifies your GitHub sign-in.</p>
+              </div>
+            )}
+            {!authLoading && activePage === "investigate" && (
               <section className="page-view">
                 <div className="content-head">
                   <div>
@@ -456,8 +485,8 @@ export default function AgentXApp() {
                   <div className="card-body">
                     <div className="form-grid">
                       <label>Repository
-                        <select value={repository} onChange={(event) => { setRepository(event.target.value); setIssues([]); }} disabled={!user || busy === "repositories"}>
-                          <option value="">Select a GitHub repository</option>
+                        <select value={repository} onChange={(event) => { setRepository(event.target.value); setIssues([]); setIssuesLoaded(false); }} disabled={!user || reposLoading}>
+                          <option value="">{reposLoading ? "Loading repositories…" : "Select a GitHub repository"}</option>
                           {visibleRepositories.map((item) => <option key={item.id} value={item.fullName}>{item.fullName} · {item.private ? "Private" : "Public"}</option>)}
                         </select>
                       </label>
@@ -469,6 +498,9 @@ export default function AgentXApp() {
                         {issues.map((issue) => <option key={issue.number} value={issue.number}>#{issue.number} — {issue.title}</option>)}
                       </select>
                     </label>
+                    {issuesLoaded && issues.length === 0 && !issueLoading && !error && (
+                      <p className="subtle" role="status">No open issues found for {repository}. Pick another repository or check GitHub directly.</p>
+                    )}
                     {selectedIssue && (
                       <div className="issue-preview">
                         <div><strong>#{selectedIssue.number} {selectedIssue.title}</strong><p className="subtle">{selectedIssue.body || "This issue has no description."}</p></div>
@@ -493,7 +525,7 @@ export default function AgentXApp() {
               </section>
             )}
 
-            {activePage === "workspace" && (
+            {!authLoading && activePage === "workspace" && (
               <section className="page-view">
                 <div className="content-head"><div><h1>Workspace</h1><p className="subtle">Edit files and run tests inside the isolated repository workspace.</p></div><button className="secondary" onClick={() => navigate("investigate")}>Choose an issue</button></div>
                 {!workspace ? (
@@ -502,17 +534,20 @@ export default function AgentXApp() {
                   <section className="workspace-panel">
                     <aside className="file-panel">
                       <div className="panel-title"><span>Files</span><span className="badge">{files.length}</span></div>
+                      {busy === "workspace" && <p className="faint" role="status">Creating workspace…</p>}
+                      {busy !== "workspace" && files.length === 0 && <p className="faint">No files listed for this workspace yet.</p>}
                       {files.map((file) => <button className={file === selectedFile ? "file-item active" : "file-item"} key={file} onClick={() => void openFile(file)}><Icon name="folder" size={14} /><span>{file}</span></button>)}
                     </aside>
                     <div className="editor-area">
-                      <div className="editor-header"><span className="mono">{selectedFile || "Select a file"}</span><div><button className="secondary small-button" onClick={() => void loadDiff()}>Refresh diff</button><button className="primary small-button" onClick={() => void saveFile()} disabled={!selectedFile || !changed || busy === "save"}>{busy === "save" ? "Saving..." : "Save file"}</button></div></div>
-                      <textarea className="code-editor" value={content} onChange={(event) => setContent(event.target.value)} placeholder="Select a file from the workspace tree." spellCheck={false} />
+                      <div className="editor-header"><span className="mono">{busy === "file" ? "Loading file…" : selectedFile || "Select a file"}</span><div><button className="secondary small-button" onClick={() => void loadDiff()}>Refresh diff</button><button className="primary small-button" onClick={() => void saveFile()} disabled={!selectedFile || !changed || busy === "save"}>{busy === "save" ? "Saving..." : "Save file"}</button></div></div>
+                      <textarea className="code-editor" value={content} onChange={(event) => setContent(event.target.value)} placeholder="Select a file from the workspace tree." spellCheck={false} aria-label="File editor" />
                       <div className="terminal">
                         <div className="terminal-title">Sandbox tests</div>
                         <div className="test-row">
-                          <select value={testCommand} onChange={(event) => setTestCommand(event.target.value)}><option>npm test</option><option>npm run test</option><option>npm run lint</option><option>pytest</option><option>dotnet test</option><option>cargo test</option><option>go test ./...</option></select>
+                          <select value={testCommand} onChange={(event) => setTestCommand(event.target.value)} aria-label="Test command"><option>npm test</option><option>npm run test</option><option>npm run lint</option><option>pytest</option><option>dotnet test</option><option>cargo test</option><option>go test ./...</option></select>
                           <button className="primary" onClick={() => void runTests()} disabled={busy === "test"}>{busy === "test" ? "Running..." : "Run test"}</button>
                         </div>
+                        {!testResult && busy !== "test" && <p className="subtle" style={{ marginTop: 12 }}>No test run yet — choose a command and run it in the sandbox.</p>}
                         {testResult && (<>
                           {testResult.sandboxed && <p className="subtle mono">Docker sandbox · {testResult.image || "unknown image"} · network off · host files not mounted</p>}
                           <pre className={testResult.passed ? "test-output passed" : "test-output failed"}>{testResult.stdout || testResult.stderr || "No test output."}</pre>
@@ -524,7 +559,7 @@ export default function AgentXApp() {
               </section>
             )}
 
-            {activePage === "review" && (
+            {!authLoading && activePage === "review" && (
               <section className="page-view">
                 <div className="content-head"><div><h1>Review & approve</h1><p className="subtle">Inspect the exact patch and test result before any branch push or pull request.</p></div></div>
                 <section className="card">
@@ -539,34 +574,51 @@ export default function AgentXApp() {
               </section>
             )}
 
-            {activePage === "settings" && (
+            {!authLoading && activePage === "settings" && (
               <section className="page-view">
                 <div className="content-head"><div><h1>Settings</h1><p className="subtle">Review connection status and local workspace preferences.</p></div></div>
                 <section className="card settings-list">
                   <div className="setting-row"><div><strong>GitHub sign-in</strong><p className="subtle">Used for your AgentX account session, and required to load repositories, issues, clone workspaces, and open pull requests.</p></div>{user?.provider === "github" ? <button className="toggle on" onClick={() => void logout()}><span />Connected · Disconnect</button> : <a className="button secondary" href="/api/auth/github"><Icon name="github" />Connect</a>}</div>
-                  <div className="setting-row"><div><strong>Approval policy</strong><p className="subtle">Choose when AgentX may proceed with protected actions.</p></div><select className="setting-select" value={approvalPolicy} onChange={(event) => setPolicy(event.target.value)}><option value="always_approve">Always approve</option><option value="always_ask">Always ask</option><option value="approve_only_these">Approve only these</option></select></div>
+                  <div className="setting-row"><div><strong>Approval policy</strong><p className="subtle">Choose when AgentX may proceed with protected actions.</p></div><select className="setting-select" value={approvalPolicy} onChange={(event) => setPolicy(event.target.value)} aria-label="Approval policy"><option value="always_approve">Always approve</option><option value="always_ask">Always ask</option><option value="approve_only_these">Approve only these</option></select></div>
                   <div className="setting-row"><div><strong>Workspace root</strong><p className="subtle">Isolated workspaces are managed under the server workspace root. On the Vercel deployment this is ephemeral — workspaces and sandbox tests need a local run with git and Docker.</p></div><code>WORKSPACE_ROOT</code></div>
                 </section>
               </section>
             )}
 
-            {activePage === "repositories" && (
+            {!authLoading && activePage === "repositories" && (
               <section className="page-view">
                 <div className="content-head"><div><h1>Repositories</h1><p className="subtle">Repositories available to the connected GitHub account.</p></div></div>
                 <div className="form-grid" style={{ marginBottom: 16 }}>
                   <label>Search GitHub repositories<input value={repositoryQuery} onChange={(event) => setRepositoryQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void searchRepositories(); }} placeholder="Search all GitHub repositories..." /></label>
                   <button className="secondary action-button" onClick={() => void searchRepositories()} disabled={busy === "repository-search"}>{busy === "repository-search" ? "Searching..." : "Search"}</button>
                 </div>
-                <div className="filter-tabs">{(["all", "public", "private"] as const).map((filter) => <button className={repositoryFilter === filter ? "active" : ""} key={filter} onClick={() => setRepositoryFilter(filter)}>{filter[0].toUpperCase() + filter.slice(1)} <span>{repositories.filter((item) => filter === "all" || (filter === "private" ? item.private : !item.private)).length}</span></button>)}</div>
+                <div className="filter-tabs">{(["all", "public", "private"] as const).map((filter) => <button className={repositoryFilter === filter ? "active" : ""} key={filter} onClick={() => setRepositoryFilter(filter)} aria-pressed={repositoryFilter === filter}>{filter[0].toUpperCase() + filter.slice(1)} <span>{repositories.filter((item) => filter === "all" || (filter === "private" ? item.private : !item.private)).length}</span></button>)}</div>
+                {reposLoading && <p className="subtle" role="status">Loading repositories…</p>}
+                {error && repositories.length === 0 && !reposLoading && (
+                  <div className="card card-body" role="alert">
+                    <p>Repositories could not be loaded. {error}</p>
+                    <div className="action-row"><button className="secondary" onClick={() => void loadRepositories()}>Retry loading repositories</button></div>
+                  </div>
+                )}
                 <section className="card"><div className="list">
-                  {visibleRepositories.length === 0 ? <div className="card-body subtle">{user ? "No repositories match this view." : "Sign in with GitHub to load repositories."}</div> : visibleRepositories.map((item) => (
+                  {visibleRepositories.length === 0 ? <div className="card-body subtle">{reposLoading ? "Loading repositories…" : user ? "No repositories match this view." : "Sign in with GitHub to load repositories."}</div> : visibleRepositories.map((item) => (
                     <div className="list-row repo-row" key={item.id} onContextMenu={(event) => { event.preventDefault(); setContextRepository(item); setContextPosition({ x: Math.min(event.clientX, window.innerWidth - 300), y: Math.min(event.clientY, window.innerHeight - 180) }); }}>
                       <button className="repo-link" onClick={() => selectRepository(item)}><span className="avatar"><Icon name="repository" /></span><div className="list-main"><span className="list-title">{item.fullName}</span><span className="faint">{item.private ? "Private" : "Public"} · default branch {item.defaultBranch}</span></div></button>
                       <a className="faint" href={item.url} target="_blank" rel="noreferrer">Visit <Icon name="chevron-right" /></a>
                     </div>
                   ))}
                 </div></section>
-                {contextRepository && <div className="context-menu" style={{ left: contextPosition.x, top: contextPosition.y }} role="menu"><strong>{contextRepository.fullName}</strong><button onClick={() => selectRepository(contextRepository)}>Load issues</button><a href={contextRepository.url} target="_blank" rel="noreferrer">Visit this repository</a><button onClick={() => setContextRepository(null)}>Cancel</button></div>}
+                {contextRepository && (
+                  <>
+                    <button className="menu-overlay" onClick={() => setContextRepository(null)} aria-label="Close repository menu" />
+                    <div className="context-menu" style={{ left: contextPosition.x, top: contextPosition.y, zIndex: 20 }} role="menu">
+                      <strong>{contextRepository.fullName}</strong>
+                      <button role="menuitem" onClick={() => selectRepository(contextRepository)}>Load issues</button>
+                      <a role="menuitem" href={contextRepository.url} target="_blank" rel="noreferrer">Visit this repository</a>
+                      <button role="menuitem" onClick={() => setContextRepository(null)}>Cancel</button>
+                    </div>
+                  </>
+                )}
               </section>
             )}
           </div>

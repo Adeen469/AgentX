@@ -20,5 +20,10 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "_securityOverridesNote": "npm audit / OSV 2026-11-08: overrides force transitive deps to patched minor versions. postcss 8.4.31 -> ^8.5.23 fixes GHSA-6g55-p6wh-862q, GHSA-r28c-9q8g-f849, GHSA-qx2v-qp2m-jg93, GHSA-fxqj-rqcc-2cmp (pinned by next@14.2.35). builder-util-runtime 9.2.10 -> ^9.7.0 fixes GHSA-p2f4-r6v6-j797 (pinned by electron-builder@25.1.8). NOT fixed here (major bump required, integration decision): next@14.2.35 (25 advisories incl. 2 unauth RCE, fixed only in 15.5+/16.x), electron@32.3.3 (45 advisories), tar 6.2.1 -> 7.5.x, minimatch -> 11.x, glob -> 14.x, app-builder-lib -> 26.15.0, extract-zip 2.0.1 (no fixed release yet).",
+  "overrides": {
+    "postcss": "^8.5.23",
+    "builder-util-runtime": "^9.7.0"
   }
 }

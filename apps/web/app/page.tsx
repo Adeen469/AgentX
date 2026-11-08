@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import HashRedirect from "./components/HashRedirect";
 import { Icon } from "./components/ui/Icon";
@@ -22,19 +22,54 @@ type CommitData = {
 // Every number on this page comes from the public AgentX repository on
 // GitHub, fetched live. If GitHub is unreachable, the numbers are hidden —
 // never invented, never sample data.
-async function getLiveData(): Promise<{ repo: RepoData | null; commits: CommitData[] }> {
+//
+// Data source: GET /api/github/stats (server side, added by the backend
+// work). OLD shape (before the endpoint existed): this page fetched
+// api.github.com directly, unauthenticated, with no shared cache and no
+// stale fallback — so a 403 rate-limit on Vercel's shared egress IPs
+// (60 req/hr unauthenticated) rendered "Live GitHub stats are
+// unavailable right now".
+// NEW shape: { repo, commits, cached, stale, fetchedAt }. The repo and
+// commit field names are UNCHANGED from the old direct-fetch shape, so
+// the rendering below is the same; the three metadata fields are new.
+// The endpoint caches server-side for 10 minutes, serves stale data on
+// GitHub failure, and uses GITHUB_TOKEN / GITHUB_STATS_TOKEN when set.
+// Display-side staleness: the last successful fetch is ALSO kept in a
+// module-level cache here, so a warm server instance can still show the
+// real numbers (clearly marked stale, with the fetch time) if the
+// endpoint itself is unreachable. That cache is per-instance and does
+// not survive a cold start.
+type StatsResponse = {
+  repo: RepoData | null;
+  commits: CommitData[];
+  cached?: boolean;
+  stale?: boolean;
+  fetchedAt?: string | null;
+  error?: string;
+};
+type LiveData = { repo: RepoData | null; commits: CommitData[]; stale: boolean; fetchedAt: string | null };
+let lastGood: { repo: RepoData; commits: CommitData[]; fetchedAt: string } | null = null;
+
+async function getLiveData(): Promise<LiveData> {
   try {
-    const headers = { "User-Agent": "AgentX", Accept: "application/vnd.github+json" };
-    const [repoRes, commitRes] = await Promise.all([
-      fetch("https://api.github.com/repos/Adeen469/AgentX", { headers, next: { revalidate: 3600 } }),
-      fetch("https://api.github.com/repos/Adeen469/AgentX/commits?per_page=5", { headers, next: { revalidate: 3600 } }),
-    ]);
-    if (!repoRes.ok) return { repo: null, commits: [] };
-    const repo = (await repoRes.json()) as RepoData;
-    const commits = commitRes.ok ? ((await commitRes.json()) as CommitData[]) : [];
-    return { repo, commits };
+    const h = headers();
+    const proto = h.get("x-forwarded-proto") ?? "http";
+    const host = h.get("host") ?? "localhost:3000";
+    const res = await fetch(`${proto}://${host}/api/github/stats`, {
+      signal: AbortSignal.timeout(8000),
+      next: { revalidate: 600 },
+    });
+    if (!res.ok) throw new Error(`Stats endpoint failed (${res.status})`);
+    const body = (await res.json()) as StatsResponse;
+    if (!body.repo) throw new Error("Stats endpoint returned no repo");
+    const fetchedAt = body.fetchedAt ?? new Date().toISOString();
+    lastGood = { repo: body.repo, commits: body.commits, fetchedAt };
+    return { repo: body.repo, commits: body.commits, stale: body.stale ?? false, fetchedAt };
   } catch {
-    return { repo: null, commits: [] };
+    // Genuinely no data only when nothing was ever fetched successfully
+    // on this instance; otherwise serve the last good numbers as stale.
+    if (lastGood) return { repo: lastGood.repo, commits: lastGood.commits, stale: true, fetchedAt: lastGood.fetchedAt };
+    return { repo: null, commits: [], stale: false, fetchedAt: null };
   }
 }
 
@@ -60,7 +95,7 @@ export default async function LandingPage() {
     sessionUser = null;
   }
   if (sessionUser) redirect("/app");
-  const { repo, commits } = await getLiveData();
+  const { repo, commits, stale, fetchedAt } = await getLiveData();
   const features = [
     { icon: "issues" as const, title: "Reads the real issue", text: "Loads open issues from the repository you choose on GitHub — title, body, and number — not a pasted description." },
     { icon: "activity" as const, title: "Plans before it touches code", text: "An AI plan with steps, likely files, and validation commands, trying Groq, Gemini, OpenRouter, and NVIDIA in sequence if one fails." },
@@ -94,7 +129,7 @@ export default async function LandingPage() {
         </div>
       </header>
 
-      <main className="landing-main">
+      <main className="landing-main" id="main">
         <section className="hero">
           <div>
             <span className="hero-badge">PS-05 · Bug-fix agent for code repositories</span>
@@ -124,6 +159,9 @@ export default async function LandingPage() {
                     <div><strong>{formatDate(repo.updated_at)}</strong><span>Last updated</span></div>
                   </div>
                   <a href={repo.html_url} target="_blank" rel="noreferrer">View on GitHub</a>
+                  {stale && fetchedAt && (
+                    <p className="subtle stale-note">Showing cached stats from {formatDate(fetchedAt)} — live GitHub data is unavailable right now, so these numbers may be out of date.</p>
+                  )}
                 </>
               ) : (
                 <p className="subtle">Live GitHub stats are unavailable right now, so no numbers are shown here. The app itself still works after sign-in.</p>

@@ -7,7 +7,7 @@ type AuthUser = { id: string; name: string; email: string; picture?: string; pro
 type Repository = { id: number; fullName: string; private: boolean; defaultBranch: string; url: string };
 type Issue = { number: number; title: string; body: string | null; html_url: string; state: string };
 type Plan = { summary: string; steps: string[]; likelyFiles: string[]; validationCommands: string[]; irreversibleActions: string[] };
-type TestResult = { command: string; passed: boolean; stdout: string; stderr: string; sandboxed?: boolean; image?: string; proof?: { runId: string; branch: string; command: string; exitCode: number | null; passed: boolean; outputHash: string; outputExcerpt: string; stored: boolean; storedError?: string } };
+type TestResult = { command: string; backend?: string; passed: boolean; stdout: string; stderr: string; sandboxed?: boolean; image?: string; proof?: { runId: string; branch: string; command: string; exitCode: number | null; passed: boolean; outputHash: string; outputExcerpt: string; stored: boolean; storedError?: string } };
 
 const PAGES = ["investigate", "workspace", "review", "repositories", "settings"] as const;
 type Page = (typeof PAGES)[number];
@@ -552,7 +552,7 @@ export default function AgentXApp() {
                         </div>
                         {!testResult && busy !== "test" && <p className="subtle" style={{ marginTop: 12 }}>No test run yet — choose a command and run it in the sandbox.</p>}
                         {testResult && (<>
-                          {testResult.sandboxed && <p className="subtle mono">Docker sandbox · {testResult.image || "unknown image"} · network off · host files not mounted</p>}
+                          {testResult.sandboxed && <p className="subtle mono">{testResult.backend === "appcontainer" ? `AppContainer sandbox · ${testResult.image || "appcontainer"} · network off · host files not mounted` : `Docker sandbox · ${testResult.image || "unknown image"} · network off · host files not mounted`}</p>}
                           {testResult.proof?.stored
                             ? <p className="subtle mono">Server proof stored · run {testResult.proof.runId.slice(0, 8)}… · branch {testResult.proof.branch}</p>
                             : <p className="subtle mono">No server proof stored{testResult.proof?.storedError ? ` (${testResult.proof.storedError})` : " (database unavailable)"} — approval will use the client test claim.</p>}

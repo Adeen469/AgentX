@@ -181,7 +181,8 @@ export function safeWorkspacePath(workspace: string, filePath: string) {
 export async function runWorkspaceTest(workspace: string, command: string) {
   // Phase 2: test code is untrusted and must never run on the host.
   // runSandboxedTest re-validates the workspace, enforces the same
-  // allowlist, and fails closed (throws) when Docker is unavailable
+  // allowlist, picks a backend (Docker, or the AppContainer worker on
+  // Windows), and fails closed (throws) when no backend is available
   // instead of falling back to a host exec. The old host exec path is
   // deliberately removed, not kept as a fallback.
   assertManagedWorkspace(workspace);

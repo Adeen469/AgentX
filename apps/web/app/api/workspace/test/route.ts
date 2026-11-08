@@ -13,9 +13,10 @@ import {
 export const runtime = "nodejs";
 
 /**
- * POST /api/workspace/test — run an allowlisted test command in the Docker
- * sandbox, then store a server-side test-pass proof in `test_runs` and
- * return it alongside the test result.
+ * POST /api/workspace/test — run an allowlisted test command in a sandbox
+ * (Docker, or the Windows AppContainer worker when the desktop app is
+ * used — see lib/sandbox.ts), then store a server-side test-pass proof
+ * in `test_runs` and return it alongside the test result.
  *
  * Body: { workspace, command, branch?, runId? }
  * - `branch` is the agent branch under test (e.g. "agentx/issue-3"); the
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
       branch,
       runId: proof.runId,
       command: result.command,
+      backend: result.backend,
       passed: result.passed,
       exitCode: result.exitCode,
       proofStored: proof.stored,

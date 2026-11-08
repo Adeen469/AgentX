@@ -50,6 +50,7 @@ export async function POST(request: Request) {
     reproStatus: reproduction.status,
     reproCommand: reproduction.command,
     reproExitCode: reproduction.exitCode,
+    sandboxBackend: reproduction.sandboxBackend ?? null,
     dockerAvailable: reproduction.dockerAvailable,
   });
   return NextResponse.json(reproduction);

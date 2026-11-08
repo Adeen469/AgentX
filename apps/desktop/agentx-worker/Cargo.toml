@@ -1,0 +1,35 @@
+[package]
+name = "agentx-worker"
+version = "0.1.0"
+description = "AgentX AppContainer sandbox worker — runs one allowlisted test command inside a Windows AppContainer and prints a single JSON result. Shipped inside the AgentX installer as a Tauri resource."
+authors = ["AgentX contributors"]
+edition = "2021"
+
+# A separate crate (not a [[bin]] in the Tauri crate) on purpose: the
+# Tauri crate's build script validates every tauri.conf.json resource
+# path, including resources/agentx-worker.exe — so building the worker
+# as a bin of that crate deadlocks on the first build (the worker cannot
+# be built until the staged copy exists, and the copy cannot exist until
+# the worker is built). As its own crate the worker builds standalone;
+# apps/desktop/scripts/prepare-worker.mjs then stages the binary at
+# src-tauri/resources/agentx-worker.exe for the bundler.
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+# Win32 bindings for the AppContainer APIs. The code is cfg(windows)
+# gated, so the crate still compiles on Linux (as a stub that reports
+# "requires Windows") — the bindings are only referenced from
+# Windows-only code.
+windows-sys = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_Security",
+  "Win32_Security_Isolation",
+  "Win32_Security_Authorization",
+  "Win32_Storage_FileSystem",
+  "Win32_System_JobObjects",
+  "Win32_System_Pipes",
+  "Win32_System_Threading",
+  "Win32_UI_WindowsAndMessaging",
+] }

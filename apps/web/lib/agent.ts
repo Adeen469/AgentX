@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { ALLOWED_TEST_COMMANDS, runSandboxedTest } from "./sandbox";
+import { ALLOWED_TEST_COMMANDS, runSandboxedTest, type SandboxBackend } from "./sandbox";
 
 // ---------------------------------------------------------------------------
 // Structured logging (dependency-free JSON lines).
@@ -74,7 +74,10 @@ export interface ReproAttempt {
   exitCode: number | null;
   outputExcerpt: string;
   sandboxed: boolean;
-  /** False when Docker was probed and missing; null when never probed. */
+  /** Which backend ran the repro, or null when nothing ran. */
+  sandboxBackend: SandboxBackend | null;
+  /** False when Docker was probed and missing; null when never probed
+   *  (e.g. the AppContainer backend ran instead, or no workspace). */
   dockerAvailable: boolean | null;
 }
 
@@ -115,6 +118,7 @@ export async function attemptReproduction(input: {
       exitCode: null,
       outputExcerpt: "",
       sandboxed: false,
+      sandboxBackend: null,
       dockerAvailable: null,
     };
   }
@@ -130,7 +134,8 @@ export async function attemptReproduction(input: {
       exitCode: result.exitCode,
       outputExcerpt: outputExcerpt(result.stdout, result.stderr),
       sandboxed: true,
-      dockerAvailable: true,
+      sandboxBackend: result.backend,
+      dockerAvailable: result.backend === "docker" ? true : null,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Reproduction failed.";
@@ -152,6 +157,7 @@ export async function attemptReproduction(input: {
       exitCode: null,
       outputExcerpt: "",
       sandboxed: false,
+      sandboxBackend: null,
       dockerAvailable: dockerMissing ? false : null,
     };
   }

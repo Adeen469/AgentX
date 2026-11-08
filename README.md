@@ -174,6 +174,19 @@ NSIS installer keeps the old Explorer "Open with AgentX" context-menu
 entries via `src-tauri/installer-hooks.nsh`. The desktop app is a viewer
 for the web app — it does not add its own server, auth, or sandbox.
 
+On Windows, the installer also ships `agentx-worker.exe`, a small Rust
+helper that runs repo test commands inside a Windows **AppContainer**
+(see [docs/SANDBOX.md](./docs/SANDBOX.md)): the desktop user runs only
+AgentX.exe — no Docker, no WSL, no console window. The worker is built
+automatically by `tauri build` (`beforeBuildCommand` runs
+`npm run build:worker`, i.e. `apps/desktop/scripts/prepare-worker.mjs`,
+which builds it and stages it at `src-tauri/resources/agentx-worker.exe`
+for the bundler). The server finds it via `AGENTX_WORKER_PATH`, else the
+installed app's resources; if it is absent the AppContainer backend
+reports unavailable and tests fail closed with 503. Docker remains the
+backend on machines that have it, and for tests needing network or
+Linux-only tooling.
+
 Building the desktop app needs the Rust toolchain (`rustup`, stable)
 as well as Node: `npm run build --workspace @agentx/desktop` runs
 `tauri build` (which first runs `npm run build:web`), and `npm run dev
@@ -217,7 +230,8 @@ machine with no WebView2 and no network cannot run the app.
    step; the PR route likewise re-checks only the signed token's
    `testPassed` flag, not a stored row.
 2. **No sandboxed dependency install.** The sandbox starts from a clean
-   language image; a project needing `npm install` / `pip install` before
+   language image (Docker) or the host's machine-wide toolchains
+   (AppContainer); a project needing `npm install` / `pip install` before
    its tests will fail in the sandbox. Dependencies already in the
    workspace copy are used as-is.
 3. **PR base defaults to `main`.** The UI sends `base: "main"`; if the

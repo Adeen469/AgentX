@@ -16,3 +16,7 @@ workspaces/
 data/
 target/
 apps/desktop/src-tauri/gen/
+# Staged AppContainer worker binary (built by prepare-worker.mjs from
+# apps/desktop/agentx-worker). Never commit the binary: the installer
+# build regenerates it, and binaries cannot be pushed via the API.
+apps/desktop/src-tauri/resources/

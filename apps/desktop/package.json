@@ -6,10 +6,11 @@
   "private": true,
   "scripts": {
     "build": "tauri build",
+    "build:worker": "node scripts/prepare-worker.mjs",
     "dev": "tauri dev",
     "package": "tauri build",
     "package:portable": "tauri build --no-bundle",
-    "typecheck": "cargo check --manifest-path src-tauri/Cargo.toml"
+    "typecheck": "cargo check --manifest-path src-tauri/Cargo.toml && cargo check --manifest-path agentx-worker/Cargo.toml"
   },
   "version": "0.1.0"
 }

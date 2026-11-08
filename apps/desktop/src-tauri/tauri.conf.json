@@ -7,7 +7,7 @@
     "windows": []
   },
   "build": {
-    "beforeBuildCommand": "npm run build --workspace @agentx/web",
+    "beforeBuildCommand": "npm run build --workspace @agentx/web && npm run build:worker --workspace @agentx/desktop",
     "beforeDevCommand": "npm run dev --workspace @agentx/web",
     "devUrl": "http://localhost:3000",
     "frontendDist": "http://localhost:3000"
@@ -19,7 +19,8 @@
     "licenseFile": "../../../LICENSE.txt",
     "resources": {
       "../../../apps/web/.next/standalone": "web",
-      "../../../apps/web/.next/static": "web/.next/static"
+      "../../../apps/web/.next/static": "web/.next/static",
+      "resources/agentx-worker.exe": "agentx-worker.exe"
     },
     "targets": [
       "nsis"

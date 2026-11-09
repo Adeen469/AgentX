@@ -104,7 +104,8 @@ deployment that included `middleware.ts` failed. Do not reintroduce it.
 
 The Windows desktop app is not deployed by Vercel: it is a Tauri shell
 in `apps/desktop` that loads the web app at `AGENTX_WEB_URL` (default
-`http://localhost:3000`). It is built on Windows with the Rust toolchain
+`https://agentx-error.vercel.app` — the installed app works with no
+setup; `http://localhost:3000` is only for local dev). It is built on Windows with the Rust toolchain
 (`npm run package --workspace @agentx/desktop`); see README
 "Desktop (Windows)". The desktop shell needs WebView2 on the user's
 machine — unlike the old Electron shell, it does not bundle Chromium.

@@ -164,7 +164,8 @@ against a small test repo, including how to verify the test result.
 ## Desktop (Windows)
 
 `apps/desktop` is a Tauri (Rust) shell that loads the web app
-(`AGENTX_WEB_URL`, default `http://localhost:3000`) in the system
+(`AGENTX_WEB_URL`, default `https://agentx-error.vercel.app` — no setup
+needed; `http://localhost:3000` is only for local dev) in the system
 webview. Packaging is Tauri v2, Windows NSIS; the portable equivalent is
 the bare executable from `npm run package:portable --workspace
 @agentx/desktop` (`tauri build --no-bundle`), which runs without

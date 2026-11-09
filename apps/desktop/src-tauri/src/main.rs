@@ -3,8 +3,10 @@
 //! AgentX desktop shell (Tauri).
 //!
 //! Mirrors the old Electron `main.js`: a single 1440x900 window that loads
-//! the web app at `$AGENTX_WEB_URL` (default `http://localhost:3000`). The
-//! shell is a viewer only — it adds no server, auth, or sandbox of its own.
+//! the web app at `$AGENTX_WEB_URL` (default the live deployment
+//! `https://agentx-error.vercel.app`, so the installed app works with no
+//! setup; `http://localhost:3000` is only for local dev). The shell is a
+//! viewer only — it adds no server, auth, or sandbox of its own.
 //!
 //! Behaviour map (Electron -> Tauri):
 //! - `BrowserWindow` 1440x900, min 1100x700 -> `WebviewWindowBuilder`
@@ -54,11 +56,13 @@ fn show_error(app: &AppHandle, title: &str, message: &str) {
         .blocking_show();
 }
 
-/// The web app URL: `$AGENTX_WEB_URL`, default `http://localhost:3000`
-/// (same as the old Electron shell).
+/// The web app URL: `$AGENTX_WEB_URL` when set, otherwise the live
+/// deployment `https://agentx-error.vercel.app` — so the installed app
+/// just works out of the box with no setup. Set `AGENTX_WEB_URL` to
+/// `http://localhost:3000` only to point the app at a local dev server.
 fn web_url() -> Result<url::Url, String> {
     let raw = std::env::var("AGENTX_WEB_URL")
-        .unwrap_or_else(|_| "http://localhost:3000".to_string());
+        .unwrap_or_else(|_| "https://agentx-error.vercel.app".to_string());
     raw.parse::<url::Url>()
         .map_err(|e| format!("{raw} is not a valid URL: {e}"))
 }

@@ -97,8 +97,9 @@
   `npm run package --workspace @agentx/desktop` (or
   `npm run release:windows` for both steps). The packaged app bundles
   the web standalone output and loads it at `AGENTX_WEB_URL` (default
-  `http://localhost:3000`) — the desktop shell is a viewer, not a
-  second server. The NSIS installer needs WebView2 on the target
+  `https://agentx-error.vercel.app` — the installed app works with no
+  setup; `http://localhost:3000` is only for local dev) — the desktop
+  shell is a viewer, not a second server. The NSIS installer needs WebView2 on the target
   machine; it downloads the bootstrapper automatically when missing
   (see README "Desktop (Windows)"), unlike the old Electron shell,
   which bundled Chromium and needed no runtime.

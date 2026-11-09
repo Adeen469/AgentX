@@ -21,7 +21,9 @@
 //!   page and the app stays alive. This case is knowingly not mirrored.
 //! - `setWindowOpenHandler` + `shell.openExternal` -> `on_navigation`:
 //!   any navigation away from the app origin is denied in the webview
-//!   and opened in the system browser via the opener plugin.
+//!   and opened in the system browser via the opener plugin, EXCEPT
+//!   `github.com`, which must stay in the webview so the GitHub OAuth
+//!   flow (state cookie + callback) works.
 //! - `uncaughtException` / `unhandledRejection` -> a Rust panic hook
 //!   that logs to stderr and, if the app handle is available, shows a
 //!   native error dialog. (There is no JS main process in Tauri, so
@@ -104,7 +106,15 @@ fn main() {
                     // Mirror Electron's setWindowOpenHandler: links that
                     // leave the app origin open in the system browser and
                     // are never loaded inside the webview.
-                    if nav_url.origin() != app_url.origin() {
+                    // EXCEPTION: GitHub OAuth stays inside the webview.
+                    // Sign-in sets the `agentx_oauth_state` cookie in this
+                    // webview and GitHub redirects back to the callback URL
+                    // here; handing github.com off to the system browser
+                    // loses that cookie, so the callback always fails
+                    // with "Invalid OAuth callback state."
+                    if nav_url.origin() != app_url.origin()
+                        && nav_url.host_str() != Some("github.com")
+                    {
                         let _ = handle.opener().open_url(nav_url.as_str(), None::<&str>);
                         return false;
                     }

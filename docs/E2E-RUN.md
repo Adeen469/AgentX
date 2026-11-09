@@ -11,13 +11,16 @@
 
 One real pass through the PS-05 pipeline against a small test repository:
 
-issue → AI plan → human fix in an isolated workspace → sandboxed test →
+issue → AI plan → AI fix in an isolated workspace (human-reviewed) → sandboxed test →
 diff review → explicit approval → branch push + pull request — with the
 test result and the approval re-check visible at each step.
 
-What it does **not** prove: autonomous reproduction or an autonomous fix.
-The agent plans; **you** write the fix. That is the design, not a gap in
-the run.
+What it does **not** prove: autonomous reproduction — the repro runs
+only when a workspace already exists (the plan step reports "not-run"
+otherwise), and the AI fix is validated by `git apply --check` and by
+you in Review, not trusted blindly. The agent plans and proposes the
+patch; **you** review it, run the tests, and approve before anything
+reaches GitHub.
 
 ## Prerequisites (owner's machine)
 
@@ -134,9 +137,19 @@ docker pull node:20-bookworm-slim
 4. Click **Create isolated workspace**. Expected: a workspace is created
    on branch `agentx/issue-<number>` (shallow clone of the repo's default
    branch). The file list loads.
-5. Open the file the plan points at, make the fix the issue describes,
-   and save. Then open the **Review** view and confirm `git diff` shows
-   exactly your change — nothing else.
+5. Click **Apply AI fix** (in the plan card). Expected: the model
+   returns a unified diff for the plan's likely files, the server
+   validates it (`git apply --check`, paths inside the workspace) and
+   applies it, and the Workspace view shows the changed files. Open
+   the **Review** view and confirm `git diff` shows exactly the fix —
+   nothing else. (You can also edit a file by hand instead; the fix
+   button is optional.)
+   - If it fails with "No planned file could be read", the plan's
+     likely files do not exist in the workspace — re-run **Analyze
+     issue** after the workspace exists, or fix the file by hand.
+   - If it fails with "does not apply cleanly", the model returned a
+     bad patch; nothing was applied. Re-run **Apply AI fix** (the next
+     provider in the fallback chain is tried) or fix the file by hand.
 6. Pick the test command (`npm test`) and click **Run test**. Expected:
    a sandboxed result — `{ command: "npm test", passed: true, …,
    sandboxed: true, image: "node:20-bookworm-slim" }` — with the test
@@ -154,10 +167,13 @@ docker pull node:20-bookworm-slim
 8. Click **Confirm & open pull request**. Expected: a PR URL appears.
    Open it on GitHub and confirm: the branch is `agentx/issue-<number>`,
    the diff matches what you reviewed, and the PR body says the tests
-   passed.
-   - If the PR opens against the wrong base branch, the target repo's
-     default branch is not `main` — the UI sends `base: "main"`. That is
-     a known limit; close the PR and note it.
+   passed. The PR targets the repo's real default branch (the UI sends
+   it; the server falls back to looking it up) — the old "base is
+   always main" limit is fixed.
+   - If the repo is not yours and you have no push access, the server
+     forks it, pushes the branch to your fork, and opens the PR from
+     `your-login:agentx/issue-<number>` instead. The PR still targets
+     the owner's repo.
 
 ## 5. Verify the stored test-pass proof
 

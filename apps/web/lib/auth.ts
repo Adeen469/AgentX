@@ -4,6 +4,8 @@ export interface AuthUser {
   id: string;
   email: string;
   name: string;
+  /** GitHub login (username) — needed to open a PR from a fork as `login:branch`. */
+  login?: string;
   picture?: string;
   provider: "github";
   githubAccessToken?: string;
@@ -187,6 +189,7 @@ export async function exchangeGithubCode(code: string, redirectUri: string): Pro
     id: `github:${profile.id}`,
     email: profile.email || `${profile.login}@users.noreply.github.com`,
     name: profile.name || profile.login,
+    login: profile.login,
     picture: profile.avatar_url,
     provider: "github",
     githubAccessToken: token.access_token

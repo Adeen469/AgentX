@@ -21,6 +21,13 @@ export async function POST(request: Request) {
   try {
     return NextResponse.json(await createWorkspace(user, input.repository, issueNumber));
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Workspace creation failed." }, { status: 502 });
+    const message = error instanceof Error ? error.message : "Workspace creation failed.";
+    // On the Vercel deployment the filesystem is read-only outside /tmp,
+    // so the workspace root cannot be created at all. Say so plainly
+    // instead of surfacing a raw EROFS error.
+    if (/EROFS|read-only file system/i.test(message)) {
+      return NextResponse.json({ error: "Workspaces need a writable workspace root. Run AgentX locally (see docs/E2E-RUN.md) — the Vercel deployment cannot create workspaces." }, { status: 503 });
+    }
+    return NextResponse.json({ error: message }, { status: 502 });
   }
 }

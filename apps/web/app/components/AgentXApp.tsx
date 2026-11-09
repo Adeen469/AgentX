@@ -86,7 +86,6 @@ export default function AgentXApp() {
   const [repositoryFilter, setRepositoryFilter] = useState<"all" | "public" | "private">("all");
   const [contextRepository, setContextRepository] = useState<Repository | null>(null);
   const [contextPosition, setContextPosition] = useState({ x: 0, y: 0 });
-  const [approvalPolicy, setApprovalPolicy] = useState("always_ask");
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -126,8 +125,6 @@ export default function AgentXApp() {
     void loadRepositories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
-
-  useEffect(() => { setApprovalPolicy(localStorage.getItem("agentx-approval-policy") || "always_ask"); }, []);
 
   // Real paths, not hash fragments. Each /app/* path is a real route
   // rendering this shell, so a refresh or a direct link never 404s;
@@ -209,12 +206,6 @@ export default function AgentXApp() {
     void searchRepositories(headerQuery);
   }
 
-  function setPolicy(value: string) {
-    setApprovalPolicy(value);
-    localStorage.setItem("agentx-approval-policy", value);
-    setNotice("Approval policy saved on this device.");
-  }
-
   function selectRepository(item: Repository) {
     setRepository(item.fullName);
     setContextRepository(null);
@@ -243,11 +234,31 @@ export default function AgentXApp() {
     try {
       const body = await readJson<{ plan: Plan; provider?: string; fallbackUsed?: boolean }>(await fetch("/api/agent/plan", {
         method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ repository, issueTitle: selectedIssue.title, issueBody: selectedIssue.body })
+        // Pass the workspace when one exists so the autonomous
+        // reproduction actually runs against it; without it the repro is
+        // honestly reported as "not-run".
+        body: JSON.stringify({ repository, issueTitle: selectedIssue.title, issueBody: selectedIssue.body, workspace: workspace || undefined })
       }));
       setPlan(body.plan);
       setNotice(body.fallbackUsed ? `Plan created with ${body.provider || "a fallback provider"} after the primary AI provider was unavailable.` : `Plan created with ${body.provider || "the configured AI provider"}.`);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Planning failed."); }
+    finally { setBusy(""); }
+  }
+
+  async function applyFix() {
+    if (!workspace || !selectedIssue || !repository || !plan) return;
+    setError(""); setBusy("fix");
+    try {
+      const body = await readJson<{ diff: string; filesChanged: string[]; provider?: string; fallbackUsed?: boolean }>(await fetch("/api/agent/fix", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ workspace, repository, issueTitle: selectedIssue.title, issueBody: selectedIssue.body, plan })
+      }));
+      setNotice(`AI fix applied to ${body.filesChanged.length} file${body.filesChanged.length === 1 ? "" : "s"}${body.provider ? ` (${body.provider})` : ""}. Review the diff, then run the tests.`);
+      await loadDiff();
+      const filesBody = await readJson<{ files: string[] }>(await fetch(`/api/workspace/files?workspace=${encodeURIComponent(workspace)}`));
+      setFiles(filesBody.files);
+      navigate("workspace");
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "AI fix failed."); }
     finally { setBusy(""); }
   }
 
@@ -328,7 +339,7 @@ export default function AgentXApp() {
         method: "POST", headers: { "content-type": "application/json" },
         body: JSON.stringify({
           action: "open_pull_request", confirmation: true,
-          payload: { workspace, repository, branch: `agentx/issue-${selectedIssue.number}`, base: "main", title: `Fix #${selectedIssue.number}: ${selectedIssue.title}`, body: `Fixes #${selectedIssue.number}\n\n${plan?.summary || "Fix prepared in AgentX."}\n\nTests: ${testCommand} passed.`, testPassed: testResult.passed, diff, testCommand, ...(testResult.proof?.stored ? { testProof: { runId: testResult.proof.runId, outputHash: testResult.proof.outputHash } } : {}) }
+          payload: { workspace, repository, branch: `agentx/issue-${selectedIssue.number}`, base: repositories.find((item) => item.fullName === repository)?.defaultBranch || "main", title: `Fix #${selectedIssue.number}: ${selectedIssue.title}`, body: `Fixes #${selectedIssue.number}\n\n${plan?.summary || "Fix prepared in AgentX."}\n\nTests: ${testCommand} passed.`, testPassed: testResult.passed, diff, testCommand, ...(testResult.proof?.stored ? { testProof: { runId: testResult.proof.runId, outputHash: testResult.proof.outputHash } } : {}) }
         })
       }));
       setApprovalToken(body.approvalToken);
@@ -523,6 +534,10 @@ export default function AgentXApp() {
                       <div><h3>{plan.summary}</h3><ol>{plan.steps.map((step, index) => <li key={`${index}-${step}`}>{step}</li>)}</ol></div>
                       <div><strong>Likely files</strong><ul>{plan.likelyFiles.map((file) => <li key={file} className="mono">{file}</li>)}</ul><strong>Validation</strong><ul>{plan.validationCommands.map((command) => <li key={command} className="mono">{command}</li>)}</ul></div>
                     </div>
+                    <div className="card-body action-row">
+                      <button className="primary" onClick={() => void applyFix()} disabled={!workspace || busy === "fix"}>{busy === "fix" ? "Applying fix..." : "Apply AI fix"}</button>
+                      {!workspace && <span className="subtle">Create an isolated workspace first — the fix is applied there, never to your checked-out repo.</span>}
+                    </div>
                   </section>
                 )}
               </section>
@@ -585,7 +600,7 @@ export default function AgentXApp() {
                 <div className="content-head"><div><h1>Settings</h1><p className="subtle">Review connection status and local workspace preferences.</p></div></div>
                 <section className="card settings-list">
                   <div className="setting-row"><div><strong>GitHub sign-in</strong><p className="subtle">Used for your AgentX account session, and required to load repositories, issues, clone workspaces, and open pull requests.</p></div>{user?.provider === "github" ? <button className="toggle on" onClick={() => void logout()}><span />Connected · Disconnect</button> : <a className="button secondary" href="/api/auth/github"><Icon name="github" />Connect</a>}</div>
-                  <div className="setting-row"><div><strong>Approval policy</strong><p className="subtle">Choose when AgentX may proceed with protected actions.</p></div><select className="setting-select" value={approvalPolicy} onChange={(event) => setPolicy(event.target.value)} aria-label="Approval policy"><option value="always_approve">Always approve</option><option value="always_ask">Always ask</option><option value="approve_only_these">Approve only these</option></select></div>
+                  <div className="setting-row"><div><strong>Approval policy</strong><p className="subtle">Every protected action — pushing a branch or opening a pull request — needs your explicit confirmation after a passing test. There is no auto-approve.</p></div><span className="badge">Always ask</span></div>
                   <div className="setting-row"><div><strong>Workspace root</strong><p className="subtle">Isolated workspaces are managed under the server workspace root. On the Vercel deployment this is ephemeral — workspaces and sandbox tests need a local run with git and Docker.</p></div><code>WORKSPACE_ROOT</code></div>
                 </section>
               </section>
